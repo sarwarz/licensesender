@@ -1,0 +1,39 @@
+.ls-order-license-panel { margin: 0 0 12px; }
+.ls-order-license-summary {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px 20px;
+	align-items: center;
+	margin-bottom: 14px;
+	padding: 12px 14px;
+	background: #f6f7f7;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+}
+.ls-order-license-summary .ls-summary-stat { font-size: 13px; }
+.ls-order-license-summary .ls-summary-stat strong { margin-right: 4px; }
+.ls-order-license-toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.ls-status { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 999px; }
+.ls-status-success { background: #edfaef; color: #1e7e34; }
+.ls-status-warning { background: #fff8e5; color: #996800; }
+.ls-status-muted { background: #f0f0f1; color: #50575e; }
+.ls-status-partial { background: #e7f5fe; color: #135e96; }
+.ls-admin-key-value {
+	display: block;
+	margin: 0;
+	padding: 8px 10px;
+	background: #1e1e2e;
+	color: #cdd6f4;
+	border-radius: 4px;
+	font-size: 12px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	word-break: break-all;
+	user-select: all;
+}
+.ls-license-progress { font-size: 12px; font-weight: 600; }
+.ls-license-progress.is-complete { color: #1e7e34; }
+.ls-license-progress.is-partial { color: #996800; }
+.ls-license-progress.is-empty { color: #a00; }
+.ls-muted { color: #646970; }
+#ls_order_license_keys .widefat th { font-weight: 600; }

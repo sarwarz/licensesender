@@ -5,6 +5,16 @@ class Ls_Admin_Activation_Display {
 
     
     public static function output() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            $action = isset( $_GET['action'] ) ? sanitize_text_field( $_GET['action'] ) : '';
+            if ( $action === 'add' || $action === 'edit' ) {
+                LS_Admin_Assets::render_shell( 'activation-guides' );
+                return;
+            }
+            LS_Admin_Assets::render_shell( 'activation-guides' );
+            return;
+        }
+
         global $wpdb;
 
         // Handle Add/Edit view

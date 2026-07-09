@@ -6,7 +6,14 @@ defined( 'ABSPATH' ) || exit();
  */
 class Ls_License_Shipper_Admin_Action{
 
-	
+	private static function verify_manage_ajax() {
+		if ( ! current_user_can( 'manage_woocommerce' ) && ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error(
+				array( 'message' => __( 'Unauthorized access.', 'license-shipper' ) ),
+				403
+			);
+		}
+	}
 	public static function init(){
 
 		 add_action( 'admin_post_ls_save_settings', array( __CLASS__ , 'ls_save_settings') );
@@ -27,13 +34,13 @@ class Ls_License_Shipper_Admin_Action{
 	public static function ls_save_settings(){
 
 		if (!current_user_can('manage_options')) {
-	        LS_Admin_Notice::error(__('You do not have permission to perform this action.', 'license-sender'));
+	        LS_Admin_Notice::error(__('You do not have permission to perform this action.', 'license-shipper'));
 	        wp_redirect(wp_get_referer());
 	        exit;
 	    }
 
 	    if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'ls_save_settings_nonce')) {
-	        LS_Admin_Notice::error(__('Security check failed.', 'license-sender'));
+	        LS_Admin_Notice::error(__('Security check failed.', 'license-shipper'));
 	        wp_redirect(wp_get_referer());
 	        exit;
 	    }
@@ -98,47 +105,61 @@ class Ls_License_Shipper_Admin_Action{
 			        update_option('lship_support_email', sanitize_text_field($_POST['lship_support_email']));
 			    }
 
-			    // Save email send mode
-			    if (isset($_POST['lship_email_send_mode'])) {
-			        update_option('lship_email_send_mode', sanitize_text_field($_POST['lship_email_send_mode']));
+			    $email_text_fields = [
+			        'lship_email_subject',
+			        'lship_email_subject_single',
+			        'lship_email_subject_bulk',
+			        'lship_email_preheader',
+			    ];
+			    foreach ($email_text_fields as $key) {
+			        if (isset($_POST[$key])) {
+			            update_option($key, sanitize_text_field($_POST[$key]));
+			        }
+			    }
+			    foreach (['lship_email_intro_single', 'lship_email_intro_bulk'] as $key) {
+			        if (isset($_POST[$key])) {
+			            update_option($key, sanitize_textarea_field(wp_unslash($_POST[$key])));
+			        }
 			    }
 
 			    break;
 
 			case 'design':
-		    // Map of expected color options (all HEX colors)
 		    $design_keys = [
-		        'ls_brand',        // Brand gradient start
-		        'ls_brand_2',      // Brand gradient end
-		        'ls_ring',         // Focus ring base color (alpha added when outputting CSS)
-		        'ls_success',      // (optional) View Key gradient start
-		        'ls_success_2',    // (optional) View Key gradient end
-		        'ls_code_bg',      // Code block background
-		        'ls_code_fg',      // Code block text
-		        'ls_code_border',  // Code block border
-		        'ls_code_accent',  // Code block accent/selection
+		        'ls_brand', 'ls_brand_2', 'ls_ring', 'ls_success', 'ls_success_2',
+		        'ls_blue_600', 'ls_blue_500', 'ls_amber_500', 'ls_amber_400',
+		        'ls_code_bg', 'ls_code_fg', 'ls_code_border', 'ls_code_accent',
+		        'lship_brand_color', 'lship_accent_color',
 		    ];
 
 		    foreach ($design_keys as $key) {
-		        // Read posted value (may be empty)
 		        $raw = isset($_POST[$key]) ? wp_unslash($_POST[$key]) : '';
-		        // Sanitize as hex color (#RRGGBB or #RGB); returns null if invalid
 		        $hex = sanitize_hex_color($raw);
-		        // Store sanitized color or empty string (so your CSS can fallback)
 		        update_option($key, $hex ? $hex : '');
+		    }
+		    if (isset($_POST['lship_email_logo'])) {
+		        update_option('lship_email_logo', esc_url_raw(wp_unslash($_POST['lship_email_logo'])));
 		    }
 		    break;
 
 
 		    case 'popup':
-			    // existing color saves... then:
 			    $ui_keys = [
-			      'ls_sw_confirm_title',
-			      'ls_sw_confirm_text',
+			      'ls_sw_confirm_title', 'ls_sw_confirm_text', 'ls_sw_confirm_btn', 'ls_sw_cancel_btn',
+			      'ls_sw_bulk_title', 'ls_sw_bulk_text', 'ls_sw_bulk_confirm_btn', 'ls_sw_bulk_cancel_btn',
+			      'ls_sw_bulk_done_title', 'ls_sw_bulk_done_text',
+			      'ls_sw_view_title', 'ls_sw_view_title_many', 'ls_sw_view_copy_all', 'ls_sw_view_close',
 			    ];
 			    foreach ($ui_keys as $key) {
-			      $val = isset($_POST[$key]) ? sanitize_text_field( wp_unslash($_POST[$key]) ) : '';
-			      update_option($key, $val);
+			      $val = isset($_POST[$key]) ? wp_unslash($_POST[$key]) : '';
+			      update_option($key, in_array($key, ['ls_sw_confirm_text', 'ls_sw_bulk_text', 'ls_sw_bulk_done_text'], true)
+			          ? sanitize_textarea_field($val)
+			          : sanitize_text_field($val));
+			    }
+			    foreach (['ls_sw_confirm_color', 'ls_sw_cancel_color'] as $key) {
+			      $raw = isset($_POST[$key]) ? wp_unslash($_POST[$key]) : '';
+			      $hex = sanitize_hex_color($raw);
+			      update_option($key, $hex ? $hex : '');
 			    }
 			    break;
 
@@ -161,12 +182,12 @@ class Ls_License_Shipper_Admin_Action{
 
 
 	        default:
-	            LS_Admin_Notice::error(__('Invalid settings tab.', 'license-sender'));
+	            LS_Admin_Notice::error(__('Invalid settings tab.', 'license-shipper'));
 	            wp_redirect(wp_get_referer());
 	            exit;
 	    }
 
-	    LS_Admin_Notice::success(__('Settings saved successfully.', 'license-sender'));
+	    LS_Admin_Notice::success(__('Settings saved successfully.', 'license-shipper'));
 	    wp_redirect(wp_get_referer());
 	    exit;
 
@@ -179,162 +200,50 @@ class Ls_License_Shipper_Admin_Action{
 
 	    if (!current_user_can('manage_options')) {
 	        wp_send_json_error([
-	            'message' => __('Unauthorized access.', 'license-sender')
+	            'message' => __('Unauthorized access.', 'license-shipper')
 	        ], 403);
 	    }
 
 	    $result = License_Shipper_Api::ping();
 
-	    wp_send_json_success($result);
-
-	    if ($result['success']) {
-	        wp_send_json_success($result);
-	    } else {
-	        wp_send_json_error([
-	            'message' => $result['message'] ?? __('Unknown error occurred.', 'license-sender')
-	        ]);
+	    if ( ! empty( $result['success'] ) ) {
+	        wp_send_json_success( $result );
 	    }
+
+	    wp_send_json_error(
+	        array(
+	            'message' => $result['message'] ?? __( 'Unknown error occurred.', 'license-shipper' ),
+	            'meta'    => $result['meta'] ?? array(),
+	        )
+	    );
 	}
 
 	public static function ls_send_test_email_callback() {
-		// CSRF / auth
-		check_ajax_referer('ls_test_email_nonce');
-		if ( ! current_user_can('manage_woocommerce') && ! current_user_can('manage_options') ) {
-			wp_send_json_error(['message' => __('Unauthorized.', 'license-sender')], 403);
+		check_ajax_referer( 'ls_test_email_nonce' );
+		if ( ! current_user_can( 'manage_woocommerce' ) && ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( array( 'message' => __( 'Unauthorized.', 'license-shipper' ) ), 403 );
 		}
 
-		// Input
-		$email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-		if (!is_email($email)) {
-			wp_send_json_error(['message' => __('Invalid email address.', 'license-sender')], 400);
+		$email = isset( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
+		if ( ! is_email( $email ) ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid email address.', 'license-shipper' ) ), 400 );
 		}
 
-		// Branding / settings
-		$site_name     = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
-		$subject       = get_option('lship_email_subject', sprintf(__('Test: Your License Keys from %s', 'license-sender'), $site_name));
-		$brand_color   = get_option('lship_brand_color', '#4F46E5'); // indigo-600
-		$accent_color  = get_option('lship_accent_color', '#0EA5E9'); // sky-500
-		$text_color    = '#111827';
-		$muted_color   = '#6B7280';
-		$bg_color      = '#F3F4F6';
-		$card_bg       = '#FFFFFF';
-		$border_color  = '#E5E7EB';
-		$logo_url      = esc_url(get_option('lship_email_logo', get_site_icon_url()));
-		$support_email = is_email(get_option('lship_support_email')) ? get_option('lship_support_email') : get_option('admin_email');
-
-		// Mock order context
-		$customer_name = 'John Doe';
-		$order_number  = 'TEST-12345';
-		$order_date    = date_i18n(get_option('date_format', 'M j, Y'), current_time('timestamp'));
-
-		// Build mock rows (2 items)
-		$rows_html = '';
-		$rows      = [
-			[
-				'product'        => 'Microsoft Office 2021 Professional Plus',
-				'key'            => 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
-				'download_link'  => 'https://example.com/downloads/office2021',
-				'guide_url'      => 'https://example.com/guides/office2021-activation',
-			],
-			[
-				'product'        => 'Windows 11 Pro Retail',
-				'key'            => 'AAAAA-BBBBB-CCCCC-DDDDD-EEEEE',
-				'download_link'  => 'https://example.com/downloads/windows11pro',
-				'guide_url'      => 'https://example.com/guides/windows11-activation',
-			],
-		];
-
-		$i = 0;
-		foreach ($rows as $r) {
-			$i++;
-			$zebra = ($i % 2 === 0) ? 'background-color:#F9FAFB;' : '';
-			$rows_html .= '
-			<tr style="'.$zebra.'">
-				<td style="padding:12px 14px; font:14px/20px Arial, sans-serif; color:'.$text_color.';">'.esc_html($r['product']).'</td>
-				<td style="padding:12px 14px; font:14px/20px Arial, sans-serif; color:'.$text_color.';">
-					<span style="display:inline-block; padding:6px 10px; background:#F3F4F6; border:1px solid '.$border_color.'; border-radius:6px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;">'.esc_html($r['key']).'</span>
-				</td>
-				<td style="padding:12px 14px; text-align:center;">
-					<a href="'.esc_url($r['download_link']).'" target="_blank" style="display:inline-block; padding:10px 14px; text-decoration:none; border-radius:8px; border:1px solid '.$border_color.'; font:14px/20px Arial, sans-serif; color:'.$text_color.';">Download</a>
-				</td>
-				<td style="padding:12px 14px; text-align:center;">
-					<a href="'.esc_url($r['guide_url']).'" target="_blank" style="display:inline-block; padding:10px 14px; text-decoration:none; border-radius:8px; background:'.$accent_color.'; color:#fff; font:14px/20px Arial, sans-serif;">Guide</a>
-				</td>
-			</tr>';
+		$mode = isset( $_POST['mode'] ) ? sanitize_text_field( wp_unslash( $_POST['mode'] ) ) : 'bulk';
+		if ( ! in_array( $mode, array( 'single', 'bulk' ), true ) ) {
+			$mode = 'bulk';
 		}
 
-		// Try to render with your full HTML email template (same as production)
-		$template_path = plugin_dir_path(__FILE__) . '../public/templates/email/license-email-template.php';
-		if (file_exists($template_path)) {
-			// Expose variables to template scope
-			$rows_html     = $rows_html;
-			$subject       = $subject;
-			$site_name     = $site_name;
-			$brand_color   = $brand_color;
-			$accent_color  = $accent_color;
-			$text_color    = $text_color;
-			$muted_color   = $muted_color;
-			$bg_color      = $bg_color;
-			$card_bg       = $card_bg;
-			$border_color  = $border_color;
-			$logo_url      = $logo_url;
-			$support_email = $support_email;
-			$customer_name = $customer_name;
-			$order_number  = $order_number;
-			$order_date    = $order_date;
-
-			ob_start();
-			include $template_path;
-			$final_body = ob_get_clean();
-		} else {
-			// Fallback: use existing simple template wrapped in the WooCommerce email shell
-			$template = get_option('lship_email_template', 'This is a test email for License Sender plugin.');
-			$default_email_data = [
-				'{customer_name}' => $customer_name,
-				'{order_id}'      => $order_number,
-				'{product}'       => $rows[0]['product'],
-				'{key}'           => $rows[0]['key'],
-				'{download_link}' => $rows[0]['download_link'],
-				'{instruction}'   => $rows[0]['guide_url'],
-				'{vendor_name}'   => 'LicenseShipper',
-				'{vendor_url}'    => 'https://licenseshipper.com',
-			];
-			if (function_exists('ls_customizeEmailTemplate')) {
-				$body = ls_customizeEmailTemplate($template, $default_email_data);
-			} else {
-				// simple placeholder replacement if helper not present
-				$body = strtr($template, $default_email_data);
-			}
-
-			ob_start();
-			do_action('woocommerce_email_header', $subject);
-			echo wp_kses_post($body);
-			do_action('woocommerce_email_footer');
-			$final_body = ob_get_clean();
+		$sent = LS_License_Email_Service::send_test_email( $email, $mode );
+		if ( $sent ) {
+			wp_send_json_success( array( 'message' => __( 'Test email sent successfully.', 'license-shipper' ) ) );
 		}
 
-		// Headers (safe From)
-		$from_name_raw  = get_option('lship_email_sender_name');
-		$from_email_raw = get_option('lship_email_sender_email');
-		$from_name      = $from_name_raw ? sanitize_text_field($from_name_raw) : $site_name;
-		$from_email     = is_email($from_email_raw) ? $from_email_raw : get_option('admin_email');
-
-		$headers = [
-			'Content-Type: text/html; charset=UTF-8',
-			sprintf('From: %s <%s>', $from_name, $from_email),
-		];
-
-		// Send
-		$sent = wp_mail($email, $subject, $final_body, $headers);
-
-		if ($sent) {
-			wp_send_json_success(['message' => __('Test email sent successfully.', 'license-sender')]);
-		} else {
-			wp_send_json_error(['message' => __('Failed to send test email.', 'license-sender')], 500);
-		}
+		wp_send_json_error( array( 'message' => __( 'Failed to send test email.', 'license-shipper' ) ), 500 );
 	}
 
 	public static function ls_get_download_links(){
+		self::verify_manage_ajax();
 
 		global $wpdb;
 	    $table = $wpdb->prefix . 'ls_download_links';
@@ -377,6 +286,8 @@ class Ls_License_Shipper_Admin_Action{
 	}
 
 	public static function ls_get_single_download_link() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
 	    $table = $wpdb->prefix . 'ls_download_links';
@@ -415,6 +326,8 @@ class Ls_License_Shipper_Admin_Action{
 
 
 	public static function ls_save_download_link() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
 	    $table = $wpdb->prefix . 'ls_download_links';
@@ -480,6 +393,7 @@ class Ls_License_Shipper_Admin_Action{
 
 
 	public static function ls_delete_download_link(){
+		self::verify_manage_ajax();
 
 		global $wpdb;
 	    $table = $wpdb->prefix . 'ls_download_links';
@@ -502,6 +416,8 @@ class Ls_License_Shipper_Admin_Action{
 	 * Get all activation guides for DataTable
 	 */
 	public static function ls_get_activation_guides() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
 	    $table = $wpdb->prefix . 'ls_activation_guides';
@@ -553,6 +469,8 @@ class Ls_License_Shipper_Admin_Action{
 
 
 	public static function ls_save_activation_guide() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
 	    $table = $wpdb->prefix . 'ls_activation_guides';
@@ -704,6 +622,8 @@ class Ls_License_Shipper_Admin_Action{
 	 * Get single activation guide record (for edit form)
 	 */
 	public static function ls_get_single_activation_guide() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
 	    $table = $wpdb->prefix . 'ls_activation_guides';
@@ -754,14 +674,10 @@ class Ls_License_Shipper_Admin_Action{
 	 * Delete activation guide (AJAX)
 	 */
 	public static function ls_delete_activation_guide() {
+	    self::verify_manage_ajax();
+
 	    global $wpdb;
 
-	    // Security check
-	    if (!current_user_can('manage_options')) {
-	        wp_send_json_error(__('You are not allowed to perform this action.', 'license-shipper'));
-	    }
-
-	    // Validate ID
 	    $id = isset($_POST['id']) ? absint($_POST['id']) : 0;
 	    if ($id <= 0) {
 	        wp_send_json_error(__('Invalid ID.', 'license-shipper'));

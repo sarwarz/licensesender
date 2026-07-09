@@ -18,6 +18,11 @@ defined( 'ABSPATH' ) || exit();
 class Ls_Admin_Settings_Display {
 
     public static function output() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            LS_Admin_Assets::render_shell( 'settings' );
+            return;
+        }
+
         $current_tab = $_GET['tab'] ?? 'general';
 
         $tabs = [

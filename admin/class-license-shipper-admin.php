@@ -61,20 +61,11 @@ class License_Shipper_Admin {
 	 */
 	public function enqueue_styles() {
 
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in License_Shipper_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The License_Shipper_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
+		if ( LS_Admin_Service::uses_react_admin() && $this->is_react_admin_page() ) {
+			return;
+		}
 
 		wp_enqueue_style( 'ls_select2', plugin_dir_url( __FILE__ ) . 'css/select2.min.css', array(), $this->version, 'all' );
-		
 		wp_enqueue_style( 'ls-dataTables', plugin_dir_url( __FILE__ ) . 'css/datatables/dataTables.min.css', array(), $this->version, 'all' );
 		wp_enqueue_style( $this->plugin_name, plugin_dir_url( __FILE__ ) . 'css/license-shipper-admin.css', array(), $this->version, 'all' );
 
@@ -87,17 +78,9 @@ class License_Shipper_Admin {
 	 */
 	public function enqueue_scripts() {
 
-		/**
-		 * This function is provided for demonstration purposes only.
-		 *
-		 * An instance of this class should be passed to the run() function
-		 * defined in License_Shipper_Loader as all of the hooks are defined
-		 * in that particular class.
-		 *
-		 * The License_Shipper_Loader will then create the relationship
-		 * between the defined hooks and the functions defined in this
-		 * class.
-		 */
+		if ( LS_Admin_Service::uses_react_admin() && $this->is_react_admin_page() ) {
+			return;
+		}
 
 		wp_enqueue_script('ls_select2', plugin_dir_url(__FILE__) . 'js/select2.min.js', ['jquery'], $this->version, true);
 		wp_enqueue_script('ls_sweetalert', plugin_dir_url(__FILE__) . 'js/sweetalert.js', ['jquery'], $this->version, true);
@@ -109,7 +92,7 @@ class License_Shipper_Admin {
 	    wp_enqueue_script('ls-admin-color-picker', plugin_dir_url(__FILE__) . 'js/color-picker-init.js', ['wp-color-picker'], false, true);
 
 
-	    if (isset($_GET['page']) && $_GET['page'] === 'ls-license-shipper-downlaod-links') {
+	    if (isset($_GET['page']) && $_GET['page'] === 'ls-license-shipper-download-links') {
 		    add_thickbox();
 		    wp_enqueue_script('ls-admin-download', plugin_dir_url(__FILE__) . 'js/license-shipper-download.js', ['jquery'], false, true);
 		}
@@ -176,6 +159,15 @@ class License_Shipper_Admin {
 		    [ 'LS_Admin_Licenses_Datatables', 'render_edit' ]
 		);
 
+		add_submenu_page(
+		    null,
+		    __( 'Change License', 'license-shipper' ),
+		    __( 'Change License', 'license-shipper' ),
+		    'manage_options',
+		    'ls-license-shipper-change',
+		    [ 'LS_Admin_Licenses_Datatables', 'render_change' ]
+		);
+
 		// Submenu: Download Links
 		if (get_option('lship_enable_manage_downloads') === 'yes') {
 			
@@ -184,7 +176,7 @@ class License_Shipper_Admin {
 				__( 'Download Links', 'license-shipper' ),
 				__( 'Download Links', 'license-shipper' ),
 				'manage_options',
-				'ls-license-shipper-downlaod-links',
+				'ls-license-shipper-download-links',
 				array( 'Ls_Admin_Download_Display', 'output' )
 			);
 		}
@@ -238,6 +230,19 @@ class License_Shipper_Admin {
 		if (class_exists('LS_Admin_Licenses_Datatables')) {
 	        LS_Admin_Licenses_Datatables::boot();
 	    }
+	}
+
+	private function is_react_admin_page() {
+		$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		$react_pages = array(
+			'ls-license-shipper',
+			'ls-license-shipper-edit',
+			'ls-license-shipper-change',
+			'ls-license-shipper-settings',
+			'ls-license-shipper-download-links',
+			'ls-activation-guides',
+		);
+		return in_array( $page, $react_pages, true );
 	}
 
 }

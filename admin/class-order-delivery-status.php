@@ -1,145 +1,113 @@
 <?php
-defined('ABSPATH') || exit;
+defined( 'ABSPATH' ) || exit;
 
 class Ls_License_Shipper_Order_Delivery_Status {
 
-    public static function init() {
+	public static function init() {
+		add_filter( 'manage_edit-shop_order_columns', array( __CLASS__, 'add_delivery_column' ), 20 );
+		add_action( 'manage_shop_order_posts_custom_column', array( __CLASS__, 'render_delivery_column_legacy' ), 10, 2 );
 
-        // Add column to orders list
-        add_filter(
-            'manage_edit-shop_order_columns',
-            [ __CLASS__, 'add_delivery_column' ],
-            20
-        );
+		add_filter( 'manage_woocommerce_page_wc-orders_columns', array( __CLASS__, 'add_delivery_column' ), 20 );
+		add_action( 'manage_woocommerce_page_wc-orders_custom_column', array( __CLASS__, 'render_delivery_column_hpos' ), 10, 2 );
 
-        // Render column content
-        add_action(
-            'manage_shop_order_posts_custom_column',
-            [ __CLASS__, 'render_delivery_column' ],
-            10,
-            2
-        );
+		add_action( 'admin_head', array( __CLASS__, 'admin_styles' ) );
+	}
 
-        // Add styles
-        add_action(
-            'admin_head',
-            [ __CLASS__, 'admin_styles' ]
-        );
-    }
+	public static function add_delivery_column( $columns ) {
+		$new_columns = array();
 
-    /**
-     * Add Delivery column
-     */
-    public static function add_delivery_column( $columns ) {
+		foreach ( $columns as $key => $label ) {
+			$new_columns[ $key ] = $label;
 
-        $new_columns = [];
+			if ( $key === 'order_status' ) {
+				$new_columns['ls_delivery_status'] = __( 'Delivery', 'license-shipper' );
+			}
+		}
 
-        foreach ( $columns as $key => $label ) {
-            $new_columns[ $key ] = $label;
+		return $new_columns;
+	}
 
-            // Insert after status column
-            if ( $key === 'order_status' ) {
-                $new_columns['ls_delivery_status'] = __('Delivery', 'license-shipper');
-            }
-        }
+	public static function render_delivery_column_legacy( $column, $order_id ) {
+		if ( $column !== 'ls_delivery_status' ) {
+			return;
+		}
 
-        return $new_columns;
-    }
+		self::render_delivery_icon( wc_get_order( $order_id ) );
+	}
 
-    /**
-     * Render Delivery status icon
-     */
-    public static function render_delivery_column( $column, $order_id ) {
+	public static function render_delivery_column_hpos( $column, $order ) {
+		if ( $column !== 'ls_delivery_status' ) {
+			return;
+		}
 
-        if ( $column !== 'ls_delivery_status' ) {
-            return;
-        }
+		self::render_delivery_icon( $order instanceof WC_Order ? $order : wc_get_order( $order ) );
+	}
 
-        $order = wc_get_order( $order_id );
-        if ( ! $order ) {
-            echo '—';
-            return;
-        }
+	private static function render_delivery_icon( $order ) {
+		if ( ! $order instanceof WC_Order ) {
+			echo '—';
+			return;
+		}
 
-        global $wpdb;
-        $table = $wpdb->prefix . 'ls_cached_licenses';
+		if ( ! ls_order_has_licensable_products( $order ) ) {
+			echo '—';
+			return;
+		}
 
-        $required_products = 0;
-        $delivered_products = 0;
+		$order_id       = $order->get_id();
+		$expected_total = ls_count_expected_license_keys( $order );
+		$fetched_total  = ls_count_fetched_license_keys( $order_id );
 
-        foreach ( $order->get_items() as $item ) {
+		if ( $expected_total <= 0 ) {
+			echo '—';
+			return;
+		}
 
-            $product_id   = (int) $item->get_product_id();
-            $variation_id = (int) $item->get_variation_id();
-            $used_id      = $variation_id ?: $product_id;
+		if ( $fetched_total >= $expected_total ) {
+			$title = __( 'All license keys delivered', 'license-shipper' );
+			echo '<span class="dashicons dashicons-yes-alt ls-delivery-complete" title="' . esc_attr( $title ) . '"></span>';
+			return;
+		}
 
-            // Only License Shipper enabled products
-            if ( get_post_meta( $used_id, '_ls_enabled', true ) !== 'yes' ) {
-                continue;
-            }
+		if ( $fetched_total > 0 ) {
+			$title = sprintf(
+				/* translators: 1: fetched count, 2: expected count */
+				__( 'Partial delivery: %1$d / %2$d keys', 'license-shipper' ),
+				$fetched_total,
+				$expected_total
+			);
+			echo '<span class="dashicons dashicons-marker ls-delivery-partial" title="' . esc_attr( $title ) . '"></span>';
+			return;
+		}
 
-            $required_products++;
+		echo '<span class="dashicons dashicons-warning ls-delivery-pending" title="' . esc_attr__( 'License pending', 'license-shipper' ) . '"></span>';
+	}
 
-            $count = (int) $wpdb->get_var(
-                $wpdb->prepare(
-                    "SELECT COUNT(*) FROM $table 
-                     WHERE order_id = %d 
-                       AND product_id = %d 
-                       AND fetched = 1",
-                    $order_id,
-                    $used_id
-                )
-            );
-
-            if ( $count > 0 ) {
-                $delivered_products++;
-            }
-        }
-
-        // No License Shipper products
-        if ( $required_products === 0 ) {
-            echo '—';
-            return;
-        }
-
-        // Delivery completed
-        if ( $required_products === $delivered_products ) {
-
-            echo '<span class="dashicons dashicons-yes-alt ls-delivery-complete"
-                  title="License Delivered"></span>';
-        
-        } else {
-        
-            echo '<span class="dashicons dashicons-warning ls-delivery-pending"
-                  title="License Pending"></span>';
-        }
-
-    }
-
-    /**
-     * Admin styles
-     */
-    public static function admin_styles() {
-        ?>
-        <style>
-            .wp-list-table .column-ls_delivery_status {
-                width: 80px;
-                text-align: center;
-            }
-            .ls-delivery-complete {
-                color: #46b450;
-                font-size: 18px;
-                font-weight: bold;
-            }
-            .ls-delivery-pending {
-                color: red;
-                font-size: 18px;
-                font-weight: bold;
-            }
-        </style>
-        <?php
-    }
+	public static function admin_styles() {
+		?>
+		<style>
+			.wp-list-table .column-ls_delivery_status {
+				width: 80px;
+				text-align: center;
+			}
+			.ls-delivery-complete {
+				color: #46b450;
+				font-size: 18px;
+				font-weight: bold;
+			}
+			.ls-delivery-partial {
+				color: #dba617;
+				font-size: 18px;
+				font-weight: bold;
+			}
+			.ls-delivery-pending {
+				color: red;
+				font-size: 18px;
+				font-weight: bold;
+			}
+		</style>
+		<?php
+	}
 }
 
-// Boot
 Ls_License_Shipper_Order_Delivery_Status::init();

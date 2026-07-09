@@ -1,7 +1,7 @@
 <div class="postbox ls-tab-form" style="max-width: 1000px; padding: 20px;">
     <h2 class="wp-heading-inline"><?php _e('E-Mail Settings', 'license-shipper'); ?></h2>
     <div id="ls-description">
-        <p><?php _e('Configure the email settings used for license delivery. These settings control the sender name and email, subject lines for emails, and the recipient.', 'license-shipper'); ?></p>
+        <p><?php _e('Configure the email settings used for license delivery. One email is sent after all license keys for the order are fetched.', 'license-shipper'); ?></p>
     </div>
 
     <form method="post" action="<?php echo admin_url('admin-post.php'); ?>">
@@ -10,28 +10,6 @@
         <input type="hidden" name="tab" value="email">
 
         <table class="form-table">
-            <tr>
-                <th>
-                    <label for="lship_email_send_mode"><?php _e('Email Send Mode', 'license-shipper'); ?></label>
-                </th>
-                <td>
-                    <?php
-                    $current_mode = get_option('lship_email_send_mode', 'after_all'); // Default: after_all
-                    ?>
-                    <select name="lship_email_send_mode" id="lship_email_send_mode">
-                        <option value="after_each" <?php selected($current_mode, 'after_each'); ?>>
-                            <?php _e('Send after each product license is fetched', 'license-shipper'); ?>
-                        </option>
-                        <option value="after_all" <?php selected($current_mode, 'after_all'); ?>>
-                            <?php _e('Send once after all products are fetched', 'license-shipper'); ?>
-                        </option>
-                    </select>
-                    <p class="description">
-                        <?php _e('Choose when to send license delivery emails. “After Each” sends immediately after each product license fetch, while “After All” waits until all ordered products are ready.', 'license-shipper'); ?>
-                    </p>
-                </td>
-            </tr>
-
             <tr>
                 <th><label for="lship_email_sender_name"><?php _e('Sender Name', 'license-shipper'); ?></label></th>
                 <td>
@@ -49,10 +27,45 @@
             </tr>
 
             <tr>
-                <th><label for="lship_email_subject"><?php _e('E-Mail Subject (Customer)', 'license-shipper'); ?></label></th>
+                <th><label for="lship_email_subject"><?php _e('Default E-Mail Subject', 'license-shipper'); ?></label></th>
                 <td>
                     <input type="text" name="lship_email_subject" id="lship_email_subject" class="regular-text" value="<?php echo esc_attr(get_option('lship_email_subject')); ?>">
-                    <p class="description"><?php _e('Subject line used when sending license keys to customers after voucher redemption.', 'license-shipper'); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="lship_email_subject_single"><?php _e('Subject (single key)', 'license-shipper'); ?></label></th>
+                <td>
+                    <input type="text" name="lship_email_subject_single" id="lship_email_subject_single" class="regular-text" value="<?php echo esc_attr(get_option('lship_email_subject_single')); ?>">
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="lship_email_subject_bulk"><?php _e('Subject (multiple keys)', 'license-shipper'); ?></label></th>
+                <td>
+                    <input type="text" name="lship_email_subject_bulk" id="lship_email_subject_bulk" class="regular-text" value="<?php echo esc_attr(get_option('lship_email_subject_bulk')); ?>">
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="lship_email_preheader"><?php _e('Inbox Preheader', 'license-shipper'); ?></label></th>
+                <td>
+                    <input type="text" name="lship_email_preheader" id="lship_email_preheader" class="regular-text" value="<?php echo esc_attr(get_option('lship_email_preheader')); ?>">
+                    <p class="description"><?php _e('Short preview line shown in the inbox before the email is opened.', 'license-shipper'); ?></p>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="lship_email_intro_single"><?php _e('Intro (single key)', 'license-shipper'); ?></label></th>
+                <td>
+                    <textarea name="lship_email_intro_single" id="lship_email_intro_single" class="large-text" rows="3"><?php echo esc_textarea(get_option('lship_email_intro_single')); ?></textarea>
+                </td>
+            </tr>
+
+            <tr>
+                <th><label for="lship_email_intro_bulk"><?php _e('Intro (multiple keys)', 'license-shipper'); ?></label></th>
+                <td>
+                    <textarea name="lship_email_intro_bulk" id="lship_email_intro_bulk" class="large-text" rows="3"><?php echo esc_textarea(get_option('lship_email_intro_bulk')); ?></textarea>
                 </td>
             </tr>
 
@@ -66,7 +79,6 @@
                             'license-shipper'
                         ); ?>
                     </p>
-
                 </td>
             </tr>
 
@@ -74,8 +86,12 @@
                 <th><label for="ls_test_email"><?php _e('Send test e-mail to', 'license-shipper'); ?></label></th>
                 <td>
                     <input type="email" name="ls_test_email" id="ls_test_email" class="regular-text" value="<?php echo esc_attr(get_option('admin_email')); ?>">
+                    <select id="ls_test_email_mode" style="margin-left: 8px;">
+                        <option value="bulk"><?php _e('Multiple keys preview', 'license-shipper'); ?></option>
+                        <option value="single"><?php _e('Single key preview', 'license-shipper'); ?></option>
+                    </select>
                     <button style="margin-top: 5px" type="button" class="button" id="ls_send_test_email"><?php _e('Send', 'license-shipper'); ?></button>
-                    <p class="description" id="ls_test_email_result"><?php _e('A test email will be sent using the current email settings.', 'license-shipper'); ?></p>
+                    <p class="description" id="ls_test_email_result"><?php _e('A test email will be sent using the production license template.', 'license-shipper'); ?></p>
                 </td>
             </tr>
             <tr>

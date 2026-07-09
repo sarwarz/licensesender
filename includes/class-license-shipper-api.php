@@ -417,10 +417,7 @@ class License_Shipper_Api {
             ];
         }
 
-        // FAST cached meta read
-        $completed = $order->get_meta( '_ls_completed_license_shipper', true );
-
-        if ( $completed !== 'yes' ) {
+        if ( ! ls_is_order_license_ready( $order ) ) {
             return [
                 'success'   => false,
                 'message'   => __( 'License is not ready yet for this order.', 'license-shipper' ),

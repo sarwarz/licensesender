@@ -4,6 +4,11 @@ defined('ABSPATH') || exit;
 class Ls_Admin_Download_Display {
 
     public static function output() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            LS_Admin_Assets::render_shell( 'download-links' );
+            return;
+        }
+
         global $wpdb;
         // Fetch all WooCommerce products
         $products = function_exists('wc_get_products')

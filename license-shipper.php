@@ -10,7 +10,7 @@
  * Plugin Name:       License Shipper
  * Plugin URI:        https://github.com/sarwarz/license-shipper
  * Description:       Automatically deliver license keys for digital products via your LicenseShipper App.
- * Version:           1.0.6
+ * Version:           1.1.0
  * Author:            License Shipper
  * Author URI:        https://licenseshipper.com/
  * License:           GPL-2.0+
@@ -27,7 +27,7 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Plugin version (must match header)
  */
-define( 'LICENSE_SHIPPER_VERSION', '1.0.6' );
+define( 'LICENSE_SHIPPER_VERSION', '1.1.0' );
 
 /**
  * ----------------------------------------------------

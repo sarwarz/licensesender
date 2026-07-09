@@ -211,9 +211,18 @@ class LS_My_Keys_Endpoint {
     }
 
     protected static function render_actions($r) {
+         $order = wc_get_order( (int) $r['order_id'] );
 
-         //  Gate by order meta
-        if ( ! self::is_order_license_ready( (int) $r['order_id'] ) ) {
+         if ( ! self::is_order_license_ready( (int) $r['order_id'] ) ) {
+            if ( $order && ! $order->has_status( 'completed' ) ) {
+                echo '<span class="ls-status ls-pending" title="' .
+                     esc_attr__( 'Licenses are available after the order is completed.', 'license-shipper' ) .
+                     '">' .
+                     esc_html__( 'Pending completion', 'license-shipper' ) .
+                     '</span>';
+                return;
+            }
+
             echo '<span class="ls-status ls-unmanaged" title="' .
                  esc_attr__( 'This order was completed by another system. License Shipper did not process this order, so licenses cannot be delivered.', 'license-shipper' ) .
                  '">' .
@@ -232,8 +241,10 @@ class LS_My_Keys_Endpoint {
           esc_attr( (string) $r['billing_email'] )
         );
 
-        $count = self::cached_license_count( (int)$r['order_id'], (int)$r['product_id'] );
-        if ( $count > 0 ) {
+        $count    = self::cached_license_count( (int) $r['order_id'], (int) $r['product_id'] );
+        $expected = $order ? ls_count_expected_keys_for_product_in_order( $order, (int) $r['product_id'] ) : (int) $r['qty'];
+
+        if ( $count >= $expected && $count > 0 ) {
             printf(
                 '<button type="button" class="button ls-btn-view-key"%s data-product-name="%s" data-nonce="%s">%s</button>',
                 $attrs,
@@ -259,7 +270,7 @@ class LS_My_Keys_Endpoint {
         global $wpdb;
         $table = $wpdb->prefix . 'ls_cached_licenses';
         $sql   = $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND product_id = %d",
+            "SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND product_id = %d AND fetched = 1",
             $order_id, $product_id
         );
         return (int) $wpdb->get_var($sql);
@@ -275,7 +286,7 @@ class LS_My_Keys_Endpoint {
         $sql   = $wpdb->prepare(
             "SELECT id, key_value, download_link, activation_guide, sku, email, source
              FROM {$table}
-             WHERE order_id = %d AND product_id = %d
+             WHERE order_id = %d AND product_id = %d AND fetched = 1
              ORDER BY id DESC",
             $order_id, $product_id
         );
@@ -342,16 +353,7 @@ class LS_My_Keys_Endpoint {
 
             // Secure per-key guide URL with a key-specific nonce
             $key_id    = (int) $r['id'];
-            $dl_nonce  = wp_create_nonce('dl_guide_' . $key_id);
-            $guide_url = add_query_arg(
-                [
-                    'action'  => 'download_activation_guide',
-                    'key_id'  => $key_id,
-                    '_wpnonce'=> $dl_nonce,
-                ],
-                admin_url('admin-ajax.php')
-            );
-            $guide_url = esc_url_raw($guide_url);
+            $guide_url = ls_activation_guide_download_url( $key_id, $order );
 
             if ($i === 0) {
                 $meta['guide_url'] = $guide_url; // convenient “one button” in the modal
@@ -431,19 +433,13 @@ class LS_My_Keys_Endpoint {
             wp_send_json_error(['message' => __('Product not found in this order.', 'license-shipper')], 404);
         }
 
-        $qnty = $posted_qty ?: $line_qty;
-        if ($qnty < 1) $qnty = 1;
+        $expected_qty = ls_count_expected_keys_for_product_in_order( $order, $used_product_id );
 
-        // Completed orders only
-        if (!in_array($order->get_status(), ['completed'], true)) {
-            wp_send_json_error(['message' => __('License can only be fetched for completed orders.', 'license-shipper')], 400);
-        }
-
-        // === CACHE FIRST ===
-        $rows = self::get_cached_licenses($order_id, $used_product_id); // ensure it SELECTs id and returns ARRAY_A
+        // === CACHE FIRST (complete only) ===
+        $rows = self::get_cached_licenses( $order_id, $used_product_id );
 
         // Helper to build payload (adds id + signed guide_url)
-        $build_payload = function(array $rows) {
+        $build_payload = function( array $rows ) use ( $order ) {
             $meta = [
                 'download_link'    => '',
                 'activation_guide' => '',
@@ -461,13 +457,8 @@ class LS_My_Keys_Endpoint {
                     }
                 }
                 // Build a signed, per-key guide URL
-                $key_id   = isset($r['id']) ? (int) $r['id'] : 0;
-                $dl_nonce = $key_id ? wp_create_nonce('dl_guide_' . $key_id) : '';
-                $gurl     = $key_id ? add_query_arg(
-                    ['action' => 'download_activation_guide', 'key_id' => $key_id, '_wpnonce' => $dl_nonce],
-                    admin_url('admin-ajax.php')
-                ) : '';
-                $gurl = $gurl ? esc_url_raw($gurl) : '';
+                $key_id   = isset( $r['id'] ) ? (int) $r['id'] : 0;
+                $gurl     = $key_id ? ls_activation_guide_download_url( $key_id, $order ) : '';
 
                 if ($i === 0 && $gurl) {
                     $meta['guide_url'] = $gurl;
@@ -487,17 +478,23 @@ class LS_My_Keys_Endpoint {
             return ['count' => count($rows), 'keys' => $keys, 'meta' => $meta];
         };
 
-        if (!empty($rows)) {
-            $payload = $build_payload($rows);
-            wp_send_json_success($payload);
+        // Completed orders only
+        if ( ! in_array( $order->get_status(), array( 'completed' ), true ) ) {
+            wp_send_json_error( array( 'message' => __( 'License can only be fetched for completed orders.', 'license-shipper' ) ), 400 );
         }
 
+        if ( count( $rows ) >= $expected_qty && $expected_qty > 0 ) {
+            $payload = $build_payload( $rows );
+            wp_send_json_success( $payload );
+        }
+
+        $need = max( 1, $expected_qty - count( $rows ) );
+
         // Product settings
-        $is_enabled = get_post_meta($used_product_id, '_ls_enabled', true);
-        if ($is_enabled !== 'yes') {
+        if ( ! ls_is_license_shipper_enabled( $used_product_id ) ) {
             wp_send_json_error(['message' => __('License Shipper is not enabled for this product.', 'license-shipper')], 400);
         }
-        $mapped_sku = get_post_meta($used_product_id, '_ls_mapped_product', true);
+        $mapped_sku = ls_get_mapped_sku( $used_product_id );
         if (empty($mapped_sku)) {
             wp_send_json_error(['message' => __('This product does not have a mapped SKU.', 'license-shipper')], 400);
         }
@@ -509,7 +506,7 @@ class LS_My_Keys_Endpoint {
 
         $result = License_Shipper_Api::fetch_license([
             'sku'      => $mapped_sku,
-            'quantity' => $qnty,
+            'quantity' => $need,
             'order_id' => $order_id,
             'email'    => $email,
             'source'   => sanitize_title(get_bloginfo('name')),
@@ -531,21 +528,9 @@ class LS_My_Keys_Endpoint {
         $licenses     = is_array($result['licenses'] ?? null) ? $result['licenses'] : [];
         $product_info = is_array($result['product']  ?? null) ? $result['product']  : [];
 
-        $enable_downloads = get_option('lship_enable_manage_downloads') === 'yes';
-        $enable_guides    = get_option('lship_enable_manage_activation_guides') === 'yes';
-
-        // Try to get from plugin if enabled
-        $plugin_download_link = ($enable_downloads && function_exists('ls_get_download_link'))
-            ? ls_get_download_link($used_product_id)
-            : '';
-
-        $plugin_guide_link = ($enable_guides && function_exists('ls_get_activation_guide_pdf_link'))
-            ? ls_get_activation_guide_pdf_link($used_product_id)
-            : '';
-
-        // Determine final values (plugin first → API fallback)
-        $final_download_link = $plugin_download_link ?: ($product_info['download_link'] ?? '');
-        $final_guide_link    = $plugin_guide_link ?: ($product_info['activation_guide'] ?? '');
+        $links = ls_get_license_product_links( $used_product_id );
+        $final_download_link = $links['download_link'] ?: ( $product_info['download_link'] ?? '' );
+        $final_guide_link    = $links['activation_guide'] ?: ( $product_info['activation_guide'] ?? '' );
 
         // Insert into cache
         foreach ($licenses as $license) {
@@ -562,8 +547,9 @@ class LS_My_Keys_Endpoint {
                     'download_link'    => $final_download_link,
                     'activation_guide' => $final_guide_link,
                     'source'           => 'api',
+                    'fetched'          => 1,
                 ],
-                ['%d','%d','%s','%s','%s','%s','%s','%s']
+                ['%d','%d','%s','%s','%s','%s','%s','%s','%d']
             );
         }
 
@@ -579,13 +565,7 @@ class LS_My_Keys_Endpoint {
      * Check if license actions are allowed for an order
      */
     protected static function is_order_license_ready( int $order_id ): bool {
-        $order = wc_get_order( $order_id );
-        if ( ! $order ) {
-            return false;
-        }
-
-        // Cached WC meta read (HPOS safe)
-        return $order->get_meta( '_ls_completed_license_shipper', true ) === 'yes';
+        return ls_is_order_license_ready( $order_id );
     }
 
 

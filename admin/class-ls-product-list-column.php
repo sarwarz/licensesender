@@ -51,6 +51,14 @@ class LS_Product_List_License_Column {
 
         // Variable product
         if ($product->is_type('variable')) {
+            if ( get_option( 'lship_enable_variation_support', 'no' ) !== 'yes' ) {
+                echo $this->get_status_icon(
+                    get_post_meta( $post_id, '_ls_enabled', true ),
+                    get_post_meta( $post_id, '_ls_mapped_product', true )
+                );
+                return;
+            }
+
             $mapped = 0;
             $total  = 0;
 
@@ -105,7 +113,7 @@ class LS_Product_List_License_Column {
      * Make column sortable (optional)
      */
     public function sortable_column($columns) {
-        $columns['ls_license_status'] = 'ls_license_status';
+        $columns['ls_map_status'] = 'ls_map_status';
         return $columns;
     }
 }

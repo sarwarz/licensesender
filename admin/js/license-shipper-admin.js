@@ -40,9 +40,9 @@
         $btn.prop('disabled', false);
         setBtnLabel('Ping API');
 
-        if (response && response.success && response.data) {
+        if (response && response.success && response.data && response.data.success) {
           const serverTime =
-            (response.data && response.data.data && response.data.data.server_time) || '';
+            (response.data.data && response.data.data.server_time) || '';
           $result
             .addClass('success')
             .html(
@@ -78,6 +78,7 @@
     $.post(ls_ajax_object.ajax_url, {
       action: 'ls_send_test_email',
       email: email,
+      mode: $('#ls_test_email_mode').val() || 'bulk',
       _ajax_nonce: ls_ajax_object.test_email_nonce
     })
       .done(function (response) {

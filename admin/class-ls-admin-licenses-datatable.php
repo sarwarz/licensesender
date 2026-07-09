@@ -22,7 +22,13 @@ class LS_Admin_Licenses_Datatables {
     /** Enqueue DataTables + our CSS/JS only on our screen */
     public static function enqueue( $hook ) {
         
-        if ( empty($_GET['page']) || $_GET['page'] !== self::$slug ) return;
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            return;
+        }
+
+        if ( empty($_GET['page']) || ! in_array( $_GET['page'], array( self::$slug, 'ls-license-shipper-edit', 'ls-license-shipper-change' ), true ) ) {
+            return;
+        }
 
 
         // --- 3rd-party DataTables CSS (local) ---
@@ -78,8 +84,9 @@ class LS_Admin_Licenses_Datatables {
 
         // Data for JS
         wp_localize_script('ls-licenses-dt-js', 'LSLicensesDT', [
-            'ajaxUrl' => admin_url('admin-ajax.php'),
-            'nonce'   => wp_create_nonce('ls_dt'),
+            'ajaxUrl'     => admin_url('admin-ajax.php'),
+            'nonce'       => wp_create_nonce('ls_dt'),
+            'changeNonce' => wp_create_nonce('ls_change_license'),
         ]);
 
         
@@ -87,6 +94,11 @@ class LS_Admin_Licenses_Datatables {
 
     /** Admin page renderer */
     public static function render() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            LS_Admin_Assets::render_shell( 'licenses' );
+            return;
+        }
+
         global $wpdb;
         $t = $wpdb->prefix . 'ls_cached_licenses';
         $total    = (int) $wpdb->get_var("SELECT COUNT(*) FROM $t");
@@ -153,104 +165,17 @@ class LS_Admin_Licenses_Datatables {
             wp_send_json_error( [ 'message' => 'Unauthorized' ], 403 );
         }
 
-        global $wpdb;
-        $table = $wpdb->prefix . 'ls_cached_licenses';
-
-        $cols = [
-            0 => 'id',
-            1 => 'key_value',
-            2 => 'order_id',
-            3 => 'product_id',
-            4 => 'sku',
-            5 => 'email',
-            6 => 'created_at',
-            6 => 'action',
-        ];
-
-        $draw   = isset($_POST['draw'])  ? (int) $_POST['draw']  : 0;
-        $start  = isset($_POST['start']) ? max(0, (int) $_POST['start']) : 0;
-        $length = isset($_POST['length'])? (int) $_POST['length'] : 25;
-        if ($length < 1 || $length > 500) $length = 25;
-
-        // Search
-        $search = isset($_POST['search']['value']) ? trim(wp_unslash($_POST['search']['value'])) : '';
-        $where  = 'WHERE 1=1';
-        $args   = [];
-
-        if ($search !== '') {
-            $like = '%' . $wpdb->esc_like($search) . '%';
-            $where .= " AND (key_value LIKE %s OR sku LIKE %s OR email LIKE %s OR CAST(order_id AS CHAR) LIKE %s OR CAST(product_id AS CHAR) LIKE %s)";
-            array_push($args, $like,$like,$like,$like,$like);
-        }
-
-        // Order
-        $orderSql = 'ORDER BY id DESC';
-        if (isset($_POST['order'][0]['column'], $_POST['order'][0]['dir'])) {
-            $idx = (int) $_POST['order'][0]['column'];
-            $dir = strtolower(sanitize_text_field($_POST['order'][0]['dir'])) === 'asc' ? 'ASC' : 'DESC';
-            if (isset($cols[$idx])) {
-                $orderSql = "ORDER BY {$cols[$idx]} $dir";
-            }
-        }
-
-        // Counts
-        $recordsTotal = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table");
-        $recordsFiltered = $recordsTotal;
-        if ($search !== '') {
-            $sqlCount = "SELECT COUNT(*) FROM $table $where";
-            $recordsFiltered = (int) $wpdb->get_var($wpdb->prepare($sqlCount, $args));
-        }
-
-        // Data
-        $sql = "SELECT id, key_value, order_id, product_id, sku, email, created_at FROM $table $where $orderSql LIMIT %d OFFSET %d";
-        $params = $args;
-        $params[] = $length;
-        $params[] = $start;
-
-        $rows = $wpdb->get_results($wpdb->prepare($sql, $params), ARRAY_A);
-
-        // Enrich with Woo links/names
-        $out = [];
-        foreach ($rows as $r) {
-            $order_id     = (int) $r['order_id'];
-            $product_id   = (int) $r['product_id'];
-            $product_name = '';
-            $product_link = '';
-
-            if ($product_id) {
-                $p = wc_get_product($product_id);
-                if ($p) {
-                    $product_name = $p->get_name();
-                    $product_link = get_edit_post_link($product_id);
-                }
-            }
-
-            $out[] = [
-                'id'           => (int) $r['id'],
-                'key_value'    => (string) $r['key_value'],
-                'order_id'     => $order_id,
-                'order_link'   => $order_id ? admin_url('post.php?post='.$order_id.'&action=edit') : '',
-                'product_id'   => $product_id,
-                'product_name' => $product_name,
-                'product_link' => $product_link,
-                'sku'          => (string) $r['sku'],
-                'email'        => (string) $r['email'],
-                'created_at'   => (string) $r['created_at'],
-                'action'       => (int) $r['id'],
-            ];
-        }
-
-        wp_send_json([
-            'draw'            => $draw,
-            'recordsTotal'    => $recordsTotal,
-            'recordsFiltered' => $recordsFiltered,
-            'data'            => $out,
-        ]);
+        wp_send_json( LS_Admin_Service::list_licenses_datatables( $_POST ) );
     }
 
 
 
     public static function render_edit() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            LS_Admin_Assets::render_shell( 'licenses' );
+            return;
+        }
+
         if ( ! current_user_can('manage_woocommerce') && ! current_user_can('manage_options') ) {
             wp_die( esc_html__('You do not have permission to access this page.', 'license-shipper'), 403 );
         }
@@ -379,6 +304,11 @@ class LS_Admin_Licenses_Datatables {
     }
 
     public static function render_change() {
+        if ( LS_Admin_Service::uses_react_admin() ) {
+            LS_Admin_Assets::render_shell( 'licenses' );
+            return;
+        }
+
         if ( ! current_user_can('manage_woocommerce') && ! current_user_can('manage_options') ) {
             wp_die( esc_html__('You do not have permission to access this page.', 'license-shipper'), 403 );
         }
@@ -540,7 +470,7 @@ class LS_Admin_Licenses_Datatables {
         }
 
         $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
-        if ( ! wp_verify_nonce($nonce, 'ls_change') ) {
+        if ( ! wp_verify_nonce($nonce, 'ls_change_license') ) {
             wp_send_json_error(['message' => 'Bad nonce'], 403);
         }
 

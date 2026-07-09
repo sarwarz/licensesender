@@ -35,7 +35,12 @@ class License_Shipper_Activator {
 	    self::ls_create_download_links_table();
 	    self::ls_create_activation_guides_table();
 
+	    update_option( 'license_shipper_db_version', LICENSE_SHIPPER_VERSION );
 
+	    require_once plugin_dir_path( __FILE__ ) . 'class-ls-my-keys-endpoint.php';
+	    if ( class_exists( 'LS_My_Keys_Endpoint' ) ) {
+	        LS_My_Keys_Endpoint::activate();
+	    }
 
 	    // Redirect to settings on first activation
 	    update_option('lship_do_activation_redirect', true);
@@ -61,6 +66,8 @@ class License_Shipper_Activator {
 	    update_option('lship_email_sender_name', get_bloginfo('name'));
 	    update_option('lship_email_sender_email', get_option('admin_email'));
 	    update_option('lship_email_subject', 'Your License Key');
+	    update_option('lship_brand_color', '#4f46e5');
+	    update_option('lship_accent_color', '#0EA5E9');
 	    update_option('lship_email_template', wp_kses_post(<<<HTML
 	<p>Dear {customer_name},</p>
 

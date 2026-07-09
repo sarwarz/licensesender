@@ -1,114 +1,60 @@
-=== Plugin Name ===
-Contributors: (this should be a list of wordpress.org userid's)
-Donate link: https://licenseshipper.com/
-Tags: comments, spam
-Requires at least: 3.0.1
-Tested up to: 3.4
-Stable tag: 4.3
+=== License Shipper ===
+Contributors: licenseshipper
+Tags: woocommerce, license, digital products, license keys
+Requires at least: 5.8
+Tested up to: 6.8
+Requires PHP: 7.4
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
-Here is a short description of the plugin.  This should be no more than 150 characters.  No markup here.
+Automatically deliver license keys for digital WooCommerce products via your LicenseShipper App.
 
 == Description ==
 
-This is the long description.  No limit, and you can use Markdown (as well as in the following sections).
+License Shipper connects your WooCommerce store to [LicenseShipper](https://licenseshipper.com) so you can deliver license keys after purchase.
 
-For backwards compatibility, if this section is missing, the full length of the short description will be used, and
-Markdown parsed.
+**Features:**
 
-A few notes about the sections above:
-
-*   "Contributors" is a comma separated list of wp.org/wp-plugins.org usernames
-*   "Tags" is a comma separated list of tags that apply to the plugin
-*   "Requires at least" is the lowest version that the plugin will work on
-*   "Tested up to" is the highest version that you've *successfully used to test the plugin*. Note that it might work on
-higher versions... this is just the highest one you've verified.
-*   Stable tag should indicate the Subversion "tag" of the latest stable version, or "trunk," if you use `/trunk/` for
-stable.
-
-    Note that the `readme.txt` of the stable tag is the one that is considered the defining one for the plugin, so
-if the `/trunk/readme.txt` file says that the stable tag is `4.3`, then it is `/tags/4.3/readme.txt` that'll be used
-for displaying information about the plugin.  In this situation, the only thing considered from the trunk `readme.txt`
-is the stable tag pointer.  Thus, if you develop in trunk, you can update the trunk `readme.txt` to reflect changes in
-your in-development version, without having that information incorrectly disclosed about the current stable version
-that lacks those changes -- as long as the trunk's `readme.txt` points to the correct stable tag.
-
-    If no stable tag is provided, it is assumed that trunk is stable, but you should specify "trunk" if that's where
-you put the stable version, in order to eliminate any doubt.
+* Map WooCommerce products to LicenseShipper SKUs
+* Auto-complete orders for instant digital delivery
+* Customer license retrieval on order pages and My Account
+* Admin license management with React dashboard (Tailwind + shadcn/ui)
+* Optional download links and activation guides
+* Email notifications after key redemption
+* SSO link to the LicenseShipper app
 
 == Installation ==
 
-This section describes how to install the plugin and get it working.
-
-e.g.
-
-1. Upload `license-shipper.php` to the `/wp-content/plugins/` directory
-1. Activate the plugin through the 'Plugins' menu in WordPress
-1. Place `<?php do_action('plugin_name_hook'); ?>` in your templates
+1. Upload the plugin to `/wp-content/plugins/license-shipper/`
+2. Activate the plugin through the **Plugins** menu in WordPress
+3. Go to **License Shipper → Settings → API** and enter your API key
+4. Map products under **Products → Edit → License Shipper** tab
 
 == Frequently Asked Questions ==
 
-= A question that someone might have =
+= Does this require WooCommerce? =
 
-An answer to that question.
+Yes. WooCommerce must be installed and active.
 
-= What about foo bar? =
+= Where do customers get their keys? =
 
-Answer to foo bar dilemma.
-
-== Screenshots ==
-
-1. This screen shot description corresponds to screenshot-1.(png|jpg|jpeg|gif). Note that the screenshot is taken from
-the /assets directory or the directory that contains the stable readme.txt (tags or trunk). Screenshots in the /assets
-directory take precedence. For example, `/assets/screenshot-1.png` would win over `/tags/4.3/screenshot-1.png`
-(or jpg, jpeg, gif).
-2. This is the second screen shot
+On the order details page, the thank-you page, and the **My Keys** section in My Account.
 
 == Changelog ==
 
-= 1.0 =
-* A change since the previous version.
-* Another change.
+= 1.1.0 =
+* React admin UI for License Keys, Settings, Download Links, and Activation Guides
+* REST API layer (`license-shipper/v1`) with legacy AJAX fallback
+* Tailwind CSS + shadcn/ui design system scoped to `#ls-app-root`
+* Feature flag `ls_admin_ui_version` for instant rollback to legacy UI
 
-= 0.5 =
-* List versions from most recent at top to oldest at bottom.
+= 1.0.7 =
+* Security fixes for activation guide downloads and admin AJAX endpoints
+* HPOS compatibility for order metabox and delivery column
+* Variable product mapping fallback when variation support is disabled
+* Email send mode fix for mixed carts
+* Bug fixes across admin ping, test email template, and change-license flow
 
-== Upgrade Notice ==
-
-= 1.0 =
-Upgrade notices describe the reason a user should upgrade.  No more than 300 characters.
-
-= 0.5 =
-This version fixes a security related bug.  Upgrade immediately.
-
-== Arbitrary section ==
-
-You may provide arbitrary sections, in the same format as the ones above.  This may be of use for extremely complicated
-plugins where more information needs to be conveyed that doesn't fit into the categories of "description" or
-"installation."  Arbitrary sections will be shown below the built-in sections outlined above.
-
-== A brief Markdown Example ==
-
-Ordered list:
-
-1. Some feature
-1. Another feature
-1. Something else about the plugin
-
-Unordered list:
-
-* something
-* something else
-* third thing
-
-Here's a link to [WordPress](http://wordpress.org/ "Your favorite software") and one to [Markdown's Syntax Documentation][markdown syntax].
-Titles are optional, naturally.
-
-[markdown syntax]: http://daringfireball.net/projects/markdown/syntax
-            "Markdown is what the parser uses to process much of the readme file"
-
-Markdown uses email style notation for blockquotes and I've been told:
-> Asterisks for *emphasis*. Double it up  for **strong**.
-
-`<?php code(); // goes in backticks ?>`
+= 1.0.6 =
+* Initial public release improvements

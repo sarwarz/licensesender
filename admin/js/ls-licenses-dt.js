@@ -70,7 +70,10 @@
               return '' +
                 '<a href="admin.php?page=ls-license-shipper-edit&id='+row.id+'" class="button button-small ls-edit-btn" title="Edit">' +
                   '<span class="dashicons dashicons-edit"></span>' +
-                '</a> ';
+                '</a> ' +
+                '<a href="admin.php?page=ls-license-shipper-change&id='+row.id+'" class="button button-small" title="Change">' +
+                  '<span class="dashicons dashicons-update"></span>' +
+                '</a>';
             }
             return data;
           }
@@ -111,6 +114,40 @@
 
 
 
+
+  // Change License page: fetch replacement key by SKU
+  $(document).on('click', '#ls-fetch-btn', function () {
+    var sku = $('#ls-change-sku').val();
+    var $btn = $(this);
+
+    if (!sku) {
+      alert('SKU is missing.');
+      return;
+    }
+
+    $btn.prop('disabled', true);
+
+    $.post((window.LSLicensesDT && LSLicensesDT.ajaxUrl) || ajaxurl, {
+      action: 'ls_fetch_license_by_sku',
+      nonce: (window.LSLicensesDT && LSLicensesDT.changeNonce) || '',
+      sku: sku
+    })
+      .done(function (res) {
+        if (res && res.success && res.data) {
+          $('#ls-new-key').val(res.data.key_value || '');
+          $('#ls-new-link').val(res.data.download_link || '');
+          $('#ls-new-guide').val(res.data.activation_guide || '');
+        } else {
+          alert((res && res.data && res.data.message) || 'Failed to fetch license.');
+        }
+      })
+      .fail(function () {
+        alert('Request failed.');
+      })
+      .always(function () {
+        $btn.prop('disabled', false);
+      });
+  });
 
   });
 })(jQuery);

@@ -107,6 +107,8 @@ class License_Shipper {
 
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/ls-license-shipper-functions.php';
 
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-admin-service.php';
+
 		/**
 		 * The class responsible for defining internationalization functionality
 		 * of the plugin.
@@ -121,6 +123,8 @@ class License_Shipper {
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-my-keys-endpoint.php';
 		
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-license-email-service.php';
+
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-license-shipper-email-handler.php';
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-licenseshipper-sso.php';
@@ -137,6 +141,8 @@ class License_Shipper {
 
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-license-shipper-admin-order-metabox.php';
 
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-admin-order-actions.php';
+
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-admin-licenses-datatable.php';
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-order-delivery-status.php';
@@ -144,6 +150,10 @@ class License_Shipper {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-product-list-column.php';
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-admin-fetch-license.php';
+
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-admin-rest.php';
+
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/class-ls-admin-assets.php';
 
 
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'admin/views/ls-admin-download-display.php';
