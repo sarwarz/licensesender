@@ -120,6 +120,8 @@ class Licensesender {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-admin-notice.php';
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-licensesender-order-handler.php';
+
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-order-push.php';
 		
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-my-keys-endpoint.php';
 		

@@ -213,6 +213,16 @@ class Licensesender_Api {
     }
 
     /**
+     * Push a completed WooCommerce order to the SaaS app (creates/updates ShopOrder).
+     *
+     * @param array<string, mixed> $payload Order payload.
+     * @return array<string, mixed>
+     */
+    public static function ingest_order( array $payload ) {
+        return static::request_post( 'orders/ingest', $payload );
+    }
+
+    /**
      * List licenses assigned to a WooCommerce order.
      *
      * @param int                  $order_id WooCommerce order ID.
