@@ -1,0 +1,865 @@
+/* Header Card */
+.ls-header-card {
+  background: #fff;
+  color: #fff;
+  padding: 14px 24px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+}
+.ls-header-card h1 { margin:0; font-size:24px; font-weight:600; }
+.ls-header-card .ls-subtitle { margin:6px 0 0; font-size:14px; opacity:.9; color:#000 }
+.ls-id-badge {
+  background: rgba(255,255,255,.2);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+/* Form Card */
+.ls-card {
+  background:#fff;
+  border-radius:12px;
+  padding:20px;
+  box-shadow:0 4px 14px rgba(0,0,0,.08);
+}
+.ls-field { margin-bottom:18px; }
+.ls-field label { display:block; font-weight:600; margin-bottom:6px; }
+/* Apply 100% width only to text-based inputs, textarea, and select */
+.ls-field input:not([type="checkbox"]):not([type="radio"]),
+.ls-field textarea,
+.ls-field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+/* Keep checkboxes inline and neat */
+.ls-field input[type="checkbox"],
+.ls-field input[type="radio"] {
+    width: auto;
+    margin-right: 6px;
+    transform: scale(1.1); /* optional: slightly bigger */
+}
+
+
+/* Copy button inline */
+.ls-input-with-btn { display:flex; gap:8px; }
+.ls-input-with-btn input { flex:1; }
+
+/* Sticky Footer */
+.ls-actionbar {
+  position: sticky;
+  bottom: 0;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+  background: #fff;
+  display:flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Actionbar layout */
+.ls-actionbar {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid #eee;
+  box-shadow: 0 -2px 12px rgba(0,0,0,.05);
+}
+
+/* Back button (secondary) */
+.ls-back-btn {
+  background: #f3f4f6 !important;
+  border: 1px solid #d1d5db !important;
+  color: #374151 !important;
+  font-weight: 500;
+  padding: 6px 16px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.ls-back-btn:hover {
+  background: #e5e7eb !important;
+  border-color: #cbd5e1 !important;
+  color: #111827 !important;
+}
+
+/* Save button (primary) */
+.ls-save-btn {
+  background: linear-gradient(135deg, #667eea, #764ba2) !important;
+  border: none !important;
+  color: #fff !important;
+  font-weight: 600;
+  padding: 6px 20px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 3px 8px rgba(118, 75, 162, 0.3);
+}
+.ls-save-btn:hover {
+  background: linear-gradient(135deg, #5a67d8, #6b46c1) !important;
+  box-shadow: 0 5px 12px rgba(118, 75, 162, 0.4);
+  transform: translateY(-1px);
+}
+.ls-save-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(118, 75, 162, 0.25);
+}
+
+
+/* ===========================
+   licensesender – Download Links Admin Page
+   =========================== */
+#ls-download-wrapper {
+  background: #fff;
+  padding: 25px 30px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+#ls-download-wrapper h1.wp-heading-inline {
+  font-size: 1.8em;
+  font-weight: 600;
+  color: #2d2d2d;
+  margin-bottom: 15px;
+  display: inline-block;
+}
+
+/* ===============================
+   Compact Gradient Action Button
+   =============================== */
+#ls-download-wrapper .page-title-action {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  border: none;
+  color: #fff !important;
+  border-radius: 5px;
+  padding: 5px 12px; /* smaller height */
+  font-size: 13px;   /* smaller font */
+  font-weight: 500;
+  text-shadow: none;
+  line-height: 1.4;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 5px rgba(79, 70, 229, 0.25);
+  vertical-align: middle;
+}
+
+#ls-download-wrapper .page-title-action:hover {
+  background: linear-gradient(135deg, #4338ca, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.35);
+}
+
+#ls-download-wrapper .page-title-action:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.25);
+}
+
+#ls-download-wrapper .page-title-action:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+}
+
+
+/* ===============================
+   Beepcoder Professional Table UI
+   =============================== */
+#ls-download-links-table {
+  width: 100% !important;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  border: none;
+}
+
+/* Table Head */
+#ls-download-links-table thead th {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: left;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.dataTables_length{
+  margin-bottom: 20px;
+}
+.dataTables_filter{
+  margin-bottom: 20px;
+}
+
+#ls-download-links-table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+#ls-download-links-table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+/* Table Body */
+#ls-download-links-table tbody tr {
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+#ls-download-links-table tbody tr:nth-child(even) {
+  background: #fcfcfc;
+}
+
+#ls-download-links-table tbody tr:hover {
+  background: #f3f4f6;
+}
+
+#ls-download-links-table tbody td {
+  padding: 14px 18px;
+  font-size: 14px;
+  color: #1f2937;
+  border-bottom: 1px solid #f1f1f1;
+  vertical-align: middle;
+}
+
+/* ===============================
+   Table Action Buttons (Edit / Delete)
+   =============================== */
+#ls-download-links-table .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  padding: 0 !important;
+}
+
+/* ---- Edit Button ---- */
+#ls-download-links-table .ls-edit-link {
+  background: #eef2ff;
+  color: #4f46e5;
+  border-color: #e0e7ff;
+}
+
+#ls-download-links-table .ls-edit-link:hover {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ---- Delete Button ---- */
+#ls-download-links-table .ls-delete-link {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fee2e2;
+  margin-left: 6px;
+}
+
+#ls-download-links-table .ls-delete-link:hover {
+  background: #dc2626;
+  color: #fff;
+  border-color: #dc2626;
+  box-shadow: 0 3px 10px rgba(220, 38, 38, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ---- Dashicons ---- */
+#ls-download-links-table .dashicons {
+  font-size: 16px;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+/* ---- Accessibility + Focus ---- */
+#ls-download-links-table .button:focus {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+
+/* ===============================
+   DataTables Controls
+   =============================== */
+.dataTables_wrapper .dataTables_length select {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  background: #fff;
+  margin: 0 4px;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  background: #fff;
+  transition: all 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_filter input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  outline: none;
+}
+
+/* ===============================
+   Pagination
+   =============================== */
+.dataTables_wrapper .dataTables_paginate {
+  margin-top: 10px;
+  padding-top: 5px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button {
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #4b5563 !important;
+  padding: 6px 12px;
+  margin: 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: #4f46e5;
+  color: #fff !important;
+  border-color: #4f46e5;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
+}
+
+/* ===============================
+   Table Info Text
+   =============================== */
+.dataTables_info {
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 10px;
+}
+
+/* ===============================
+   Beepcoder Branding
+   =============================== */
+:root {
+  --bc-primary: #4f46e5;
+  --bc-primary-light: #6366f1;
+  --bc-gray-bg: #f9fafb;
+  --bc-text-dark: #1f2937;
+  --bc-border: #e5e7eb;
+}
+
+
+
+
+
+
+
+/* ==============================
+   Licensesender Modal – Clean Design
+   ============================== */
+#ls-download-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 25px 30px;
+  max-width: 600px;
+  margin: 0 auto;
+  font-family: "Inter", "Segoe UI", sans-serif;
+  color: #1f2937;
+}
+
+#ls-download-modal h2,
+#TB_ajaxContent h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 18px;
+}
+
+/* Form Layout */
+#ls-download-modal .form-table {
+  width: 100%;
+  border-spacing: 0;
+}
+
+#ls-download-modal .form-table th {
+  text-align: left;
+  width: 140px;
+  font-weight: 500;
+  color: #374151;
+  padding: 10px 0;
+}
+
+#ls-download-modal .form-table td {
+  padding: 10px 0;
+}
+
+#ls-download-modal .form-table input[type="text"],
+#ls-download-modal .form-table input[type="url"],
+#ls-download-modal .form-table input[type="number"] {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  transition: all 0.2s ease;
+}
+
+#ls-download-modal .form-table input:focus {
+  border-color: #6366f1;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  outline: none;
+}
+
+/* Buttons */
+#ls-download-modal .submit {
+  margin-top: 20px;
+  text-align: right;
+}
+
+#ls-download-modal .button-primary {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  border: none;
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 20px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+}
+
+#ls-download-modal .button-primary:hover {
+  background: linear-gradient(135deg, #4338ca, #4f46e5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(79, 70, 229, 0.25);
+}
+
+#ls-download-modal .button {
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  transition: all 0.2s ease;
+}
+
+#ls-download-modal .button:hover {
+  background: #f3f4f6;
+}
+
+#TB_closeWindowButton {
+    right: 8px !important;
+}
+
+/* Modal Alignment */
+#TB_window {
+  border-radius: 12px !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  background: #fff;
+  width: auto !important;
+  max-width: 600px;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+#TB_ajaxContent {
+  width: 100% !important;
+  height: auto !important;
+  padding: 25px 30px !important;
+  box-sizing: border-box;
+  overflow: visible !important;
+}
+
+#TB_title {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 20px;
+  border-radius: 12px 12px 0 0;
+}
+
+#TB_closeWindowButton {
+  font-size: 20px;
+  color: #6b7280;
+  transition: color 0.2s ease;
+}
+
+#TB_closeWindowButton:hover {
+  color: #4f46e5;
+}
+
+/* Scrollbar Fix for Small Screens */
+#TB_ajaxContent::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+#TB_ajaxContent::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+
+#TB_window .select2-container {
+  width: 100% !important;
+}
+#TB_window .select2-dropdown {
+  z-index: 999999 !important;
+}
+#TB_window .select2-selection--single {
+  height: 38px;
+  border-radius: 6px;
+}
+#TB_window .select2-selection__rendered {
+  line-height: 36px;
+}
+#TB_window .select2-selection__arrow {
+  height: 36px;
+}
+
+.swal2-container { z-index: 1000001 !important; }
+
+
+
+/* ================================================================
+   licensesender - Manage Activation Guides (Admin UI)
+   Compact Professional Design – by BeepCoder
+   ================================================================ */
+
+/* --------------------------------------------
+   Root Theme Variables (easy to adjust)
+-------------------------------------------- */
+:root {
+  --ls-primary: #4f46e5;
+  --ls-primary-alt: #6366f1;
+  --ls-primary-dark: #4338ca;
+  --ls-danger: #dc2626;
+  --ls-danger-bg: #fef2f2;
+  --ls-success: #059669;
+  --ls-gray: #374151;
+  --ls-border: #e5e7eb;
+  --ls-bg-light: #f9fafb;
+}
+
+/* --------------------------------------------
+   Page Wrapper
+-------------------------------------------- */
+#ls-activation-wrapper,
+#ls-activation-form-wrapper {
+  background: #fff;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+  margin-top: 20px;
+}
+
+#ls-activation-wrapper h1,
+#ls-activation-form-wrapper h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 10px;
+}
+
+/* --------------------------------------------
+   Gradient Header Buttons ("Add New", "Back")
+-------------------------------------------- */
+#ls-activation-wrapper .page-title-action,
+#ls-activation-form-wrapper .page-title-action {
+  background: linear-gradient(135deg, var(--ls-primary), var(--ls-primary-alt));
+  border: none;
+  color: #fff !important;
+  border-radius: 5px;
+  padding: 4px 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-shadow: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 4px rgba(79, 70, 229, 0.25);
+  line-height: 1.3;
+}
+
+#ls-activation-wrapper .page-title-action:hover,
+#ls-activation-form-wrapper .page-title-action:hover {
+  background: linear-gradient(135deg, var(--ls-primary-dark), var(--ls-primary));
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(79, 70, 229, 0.3);
+}
+
+/* ================================================================
+   TABLE STYLES (DataTables)
+   ================================================================ */
+#ls-activation-guides-table {
+  margin-top: 20px;
+  border-collapse: collapse;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  border: none;
+}
+
+#ls-activation-guides-table thead th {
+  background: #f9fafb;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+  text-align: left;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+#ls-activation-guides-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+  font-size: 13px;
+  vertical-align: middle;
+}
+
+/* Hover + Stripes */
+#ls-activation-guides-table tbody tr:nth-child(even) {
+  background-color: #fafafa;
+}
+#ls-activation-guides-table tbody tr:hover {
+  background: #f3f4f6;
+}
+
+/* --------------------------------------------
+   DataTables Controls (Search + Pagination)
+-------------------------------------------- */
+.dataTables_filter input {
+  border: 1px solid var(--ls-border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 13px;
+  color: var(--ls-gray);
+  margin-left: 5px;
+}
+
+.dataTables_length select {
+  border-radius: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--ls-border);
+  font-size: 13px;
+}
+
+.dataTables_paginate .paginate_button {
+  background: #fff;
+  border: 1px solid var(--ls-border);
+  border-radius: 4px;
+  margin: 0 1px;
+  padding: 3px 8px;
+  color: var(--ls-gray) !important;
+  font-size: 12.5px;
+  transition: all 0.25s ease;
+}
+.dataTables_paginate .paginate_button.current,
+.dataTables_paginate .paginate_button:hover {
+  background: linear-gradient(135deg, var(--ls-primary), var(--ls-primary-alt));
+  border-color: var(--ls-primary);
+  color: #fff !important;
+}
+
+/* ================================================================
+   TABLE ACTION BUTTONS (Edit / Delete)
+   ================================================================ */
+#ls-activation-guides-table .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  padding: 0 !important;
+}
+
+#ls-activation-guides-table .ls-edit-link {
+  background: #eef2ff;
+  color: var(--ls-primary);
+  border-color: #e0e7ff;
+}
+#ls-activation-guides-table .ls-edit-link:hover {
+  background: var(--ls-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(79, 70, 229, 0.35);
+}
+
+#ls-activation-guides-table .ls-delete-guide {
+  background: var(--ls-danger-bg);
+  color: var(--ls-danger);
+  border-color: #fee2e2;
+}
+#ls-activation-guides-table .ls-delete-guide:hover {
+  background: var(--ls-danger);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.35);
+}
+
+#ls-activation-guides-table .dashicons {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+/* ================================================================
+   FORM PAGE STYLES (Add/Edit)
+   ================================================================ */
+#ls-activation-form-wrapper .form-table th {
+  width: 180px;
+  color: var(--ls-gray);
+  font-weight: 600;
+  font-size: 13px;
+  vertical-align: top;
+  padding-top: 10px;
+}
+
+#ls-activation-form-wrapper .form-table td input[type="text"],
+#ls-activation-form-wrapper .form-table td input[type="url"],
+#ls-activation-form-wrapper .form-table td input[type="file"],
+#ls-activation-form-wrapper .form-table td select {
+  width: 100%;
+  max-width: 480px;
+  padding: 6px 8px;
+  border: 1px solid var(--ls-border);
+  border-radius: 5px;
+  font-size: 13px;
+  color: #111827;
+  transition: border-color 0.2s ease;
+}
+
+#ls-activation-form-wrapper .form-table td input:focus,
+#ls-activation-form-wrapper .form-table td textarea:focus,
+#ls-activation-form-wrapper .form-table td select:focus {
+  border-color: var(--ls-primary);
+  box-shadow: 0 0 0 1px var(--ls-primary-alt);
+  outline: none;
+}
+
+/* WP Editor wrapper */
+#wp-content-wrap {
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+/* ================================================================
+   FORM ACTION BUTTONS (Save / Cancel)
+   ================================================================ */
+#ls-activation-form-wrapper .submit {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+#ls-activation-form-wrapper .button-primary {
+  background: linear-gradient(90deg, var(--ls-primary), var(--ls-primary-alt));
+  color: #fff !important;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 4px rgba(99, 102, 241, 0.25);
+}
+
+#ls-activation-form-wrapper .button-primary:hover {
+  background: linear-gradient(90deg, var(--ls-primary-dark), var(--ls-primary));
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(79, 70, 229, 0.35);
+}
+
+#ls-activation-form-wrapper .button {
+  border-radius: 5px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+#ls-activation-form-wrapper .button:hover {
+  transform: translateY(-1px);
+}
+
+/* ================================================================
+   Select2 Styling
+   ================================================================ */
+.select2-container--default .select2-selection--single {
+  border: 1px solid var(--ls-border) !important;
+  border-radius: 5px !important;
+  height: 34px !important;
+}
+
+.select2-container--default .select2-selection__rendered {
+  line-height: 32px !important;
+  color: var(--ls-gray) !important;
+  font-size: 13px !important;
+  padding-left: 8px !important;
+}
+
+.select2-container--default .select2-selection__arrow {
+  height: 32px !important;
+  right: 10px !important;
+}
+
+/* ================================================================
+   Responsive Adjustments
+   ================================================================ */
+@media (max-width: 768px) {
+  #ls-activation-form-wrapper,
+  #ls-activation-wrapper {
+    padding: 15px;
+  }
+
+  #ls-activation-form-wrapper .form-table th {
+    width: 100%;
+    display: block;
+    padding-bottom: 6px;
+  }
+
+  #ls-activation-form-wrapper .form-table td {
+    display: block;
+    width: 100%;
+  }
+
+  #ls-activation-form-wrapper .submit {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .dataTables_filter,
+  .dataTables_length {
+    margin-bottom: 10px;
+  }
+}
+
+#lship_sso_token.disabled,
+#lship_sso_user_email.disabled {
+    background-color: #f1f1f1;
+    cursor: not-allowed;
+}
+

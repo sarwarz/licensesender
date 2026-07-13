@@ -35,9 +35,9 @@
     .ls-email-license-row { display: block !important; border: 1px solid <?php echo esc_attr( $border_color ); ?> !important; border-radius: 10px !important; margin-bottom: 12px !important; overflow: hidden !important; }
     .ls-email-license-row td { display: block !important; width: 100% !important; text-align: left !important; box-sizing: border-box !important; border: 0 !important; }
     .ls-email-col-product { font-weight: 600 !important; background: #F9FAFB !important; border-bottom: 1px solid <?php echo esc_attr( $border_color ); ?> !important; }
-    .ls-email-col-key::before { content: "<?php echo esc_attr__( 'License Key', 'license-shipper' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
-    .ls-email-col-download::before { content: "<?php echo esc_attr__( 'Download', 'license-shipper' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
-    .ls-email-col-guide::before { content: "<?php echo esc_attr__( 'Guide', 'license-shipper' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
+    .ls-email-col-key::before { content: "<?php echo esc_attr__( 'License Key', 'licensesender' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
+    .ls-email-col-download::before { content: "<?php echo esc_attr__( 'Download', 'licensesender' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
+    .ls-email-col-guide::before { content: "<?php echo esc_attr__( 'Guide', 'licensesender' ); ?>"; display: block; font: 600 11px/16px Arial,sans-serif; text-transform: uppercase; letter-spacing: .04em; color: <?php echo esc_attr( $muted_color ); ?>; margin-bottom: 6px; }
     .ls-email-col-download a, .ls-email-col-guide a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
     .ls-email-order-badge { display: block !important; margin-top: 8px !important; text-align: left !important; }
 }
@@ -68,7 +68,7 @@
                                     </td>
                                     <td align="right" class="ls-email-order-badge" style="vertical-align:middle;">
                                         <span style="display:inline-block; padding:6px 10px; border-radius:999px; background:<?php echo esc_attr( $brand_color ); ?>; color:#fff; font:12px/16px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-                                            <?php echo esc_html( sprintf( __( 'Order #%s', 'license-shipper' ), $order_number ) ); ?>
+                                            <?php echo esc_html( sprintf( __( 'Order #%s', 'licensesender' ), $order_number ) ); ?>
                                         </span>
                                     </td>
                                 </tr>
@@ -82,7 +82,7 @@
                                 <tr>
                                     <td style="padding:8px 24px 0 24px;">
                                         <h1 style="margin:16px 0 8px 0; font:600 22px/30px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:<?php echo esc_attr( $text_color ); ?>;">
-                                            <?php echo esc_html( sprintf( __( 'Hi %s,', 'license-shipper' ), $customer_name ) ); ?> <?php echo esc_html( lcfirst( $headline ) ); ?>
+                                            <?php echo esc_html( sprintf( __( 'Hi %s,', 'licensesender' ), $customer_name ) ); ?> <?php echo esc_html( lcfirst( $headline ) ); ?>
                                         </h1>
                                         <p style="margin:0 0 8px 0; font:14px/22px -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif; color:<?php echo esc_attr( $muted_color ); ?>;">
                                             <?php echo esc_html( $intro ); ?>
@@ -95,10 +95,10 @@
                                         <table role="presentation" class="ls-email-table" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid <?php echo esc_attr( $border_color ); ?>; border-radius:10px; overflow:hidden;">
                                             <thead>
                                                 <tr>
-                                                    <th align="left" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Product', 'license-shipper' ); ?></th>
-                                                    <th align="left" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'License Key', 'license-shipper' ); ?></th>
-                                                    <th align="center" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Download', 'license-shipper' ); ?></th>
-                                                    <th align="center" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Guide', 'license-shipper' ); ?></th>
+                                                    <th align="left" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Product', 'licensesender' ); ?></th>
+                                                    <th align="left" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'License Key', 'licensesender' ); ?></th>
+                                                    <th align="center" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Download', 'licensesender' ); ?></th>
+                                                    <th align="center" style="padding:12px 14px; font:600 12px/16px Arial,sans-serif; letter-spacing:.02em; text-transform:uppercase; color:<?php echo esc_attr( $muted_color ); ?>; background:#F9FAFB; border-bottom:1px solid <?php echo esc_attr( $border_color ); ?>;"><?php esc_html_e( 'Guide', 'licensesender' ); ?></th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -111,8 +111,8 @@
                                 <tr>
                                     <td style="padding:0 24px 24px 24px;">
                                         <p style="margin:0; font:14px/22px Arial,sans-serif; color:<?php echo esc_attr( $muted_color ); ?>;">
-                                            <?php esc_html_e( 'Need help?', 'license-shipper' ); ?>
-                                            <?php esc_html_e( 'Contact us at', 'license-shipper' ); ?>
+                                            <?php esc_html_e( 'Need help?', 'licensesender' ); ?>
+                                            <?php esc_html_e( 'Contact us at', 'licensesender' ); ?>
                                             <a href="mailto:<?php echo esc_attr( $support_email ); ?>" style="color:<?php echo esc_attr( $brand_color ); ?>; text-decoration:none;"><?php echo esc_html( $support_email ); ?></a>.
                                         </p>
                                     </td>

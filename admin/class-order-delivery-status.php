@@ -1,7 +1,7 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
-class Ls_License_Shipper_Order_Delivery_Status {
+class Ls_Licensesender_Order_Delivery_Status {
 
 	public static function init() {
 		add_filter( 'manage_edit-shop_order_columns', array( __CLASS__, 'add_delivery_column' ), 20 );
@@ -20,7 +20,7 @@ class Ls_License_Shipper_Order_Delivery_Status {
 			$new_columns[ $key ] = $label;
 
 			if ( $key === 'order_status' ) {
-				$new_columns['ls_delivery_status'] = __( 'Delivery', 'license-shipper' );
+				$new_columns['ls_delivery_status'] = __( 'Delivery', 'licensesender' );
 			}
 		}
 
@@ -64,7 +64,7 @@ class Ls_License_Shipper_Order_Delivery_Status {
 		}
 
 		if ( $fetched_total >= $expected_total ) {
-			$title = __( 'All license keys delivered', 'license-shipper' );
+			$title = __( 'All license keys delivered', 'licensesender' );
 			echo '<span class="dashicons dashicons-yes-alt ls-delivery-complete" title="' . esc_attr( $title ) . '"></span>';
 			return;
 		}
@@ -72,7 +72,7 @@ class Ls_License_Shipper_Order_Delivery_Status {
 		if ( $fetched_total > 0 ) {
 			$title = sprintf(
 				/* translators: 1: fetched count, 2: expected count */
-				__( 'Partial delivery: %1$d / %2$d keys', 'license-shipper' ),
+				__( 'Partial delivery: %1$d / %2$d keys', 'licensesender' ),
 				$fetched_total,
 				$expected_total
 			);
@@ -80,7 +80,7 @@ class Ls_License_Shipper_Order_Delivery_Status {
 			return;
 		}
 
-		echo '<span class="dashicons dashicons-warning ls-delivery-pending" title="' . esc_attr__( 'License pending', 'license-shipper' ) . '"></span>';
+		echo '<span class="dashicons dashicons-warning ls-delivery-pending" title="' . esc_attr__( 'License pending', 'licensesender' ) . '"></span>';
 	}
 
 	public static function admin_styles() {
@@ -110,4 +110,4 @@ class Ls_License_Shipper_Order_Delivery_Status {
 	}
 }
 
-Ls_License_Shipper_Order_Delivery_Status::init();
+Ls_Licensesender_Order_Delivery_Status::init();

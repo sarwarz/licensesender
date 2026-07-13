@@ -34,7 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { LicenseEditSheet } from '@/components/licenses/LicenseEditSheet';
-import { LicenseChangeSheet } from '@/components/licenses/LicenseChangeSheet';
+import { LicenseReportSheet } from '@/components/licenses/LicenseReportSheet';
 
 interface LicenseItem {
   id: number;
@@ -73,7 +73,7 @@ export function LicensesPage() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [editId, setEditId] = useState<number | null>(licenseId || null);
-  const [changeId, setChangeId] = useState<number | null>(null);
+  const [reportId, setReportId] = useState<number | null>(null);
 
   const loadStats = useCallback(async () => {
     const data = await apiRequest<LicenseStats>('licenses/stats');
@@ -114,11 +114,11 @@ export function LicensesPage() {
       setSearch(searchParam);
       setPage(1);
     }
-    if (pageParam === 'ls-license-shipper-edit' && licenseId) {
+    if (pageParam === 'ls-licensesender-edit' && licenseId) {
       setEditId(licenseId);
     }
-    if (pageParam === 'ls-license-shipper-change' && licenseId) {
-      setChangeId(licenseId);
+    if (pageParam === 'ls-licensesender-report' && licenseId) {
+      setReportId(licenseId);
     }
   }, [licenseId]);
 
@@ -271,8 +271,8 @@ export function LicensesPage() {
                             <DropdownMenuItem onClick={() => setEditId(item.id)}>
                               <Pencil className="mr-2 h-4 w-4" /> {i18n.edit || 'Edit'}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setChangeId(item.id)}>
-                              <RefreshCw className="mr-2 h-4 w-4" /> {i18n.change || 'Change'}
+                            <DropdownMenuItem onClick={() => setReportId(item.id)}>
+                              <RefreshCw className="mr-2 h-4 w-4" /> {i18n.report || 'Report Key'}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -305,11 +305,11 @@ export function LicensesPage() {
         onSaved={() => { loadLicenses(); setEditId(null); }}
       />
 
-      <LicenseChangeSheet
-        licenseId={changeId}
-        open={changeId !== null}
-        onOpenChange={(open) => { if (!open) setChangeId(null); }}
-        onSaved={() => { loadLicenses(); setChangeId(null); }}
+      <LicenseReportSheet
+        licenseId={reportId}
+        open={reportId !== null}
+        onOpenChange={(open) => { if (!open) setReportId(null); }}
+        onSaved={() => { loadLicenses(); setReportId(null); }}
       />
     </div>
   );

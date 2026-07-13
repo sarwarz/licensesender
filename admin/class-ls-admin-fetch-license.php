@@ -1,7 +1,7 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
-class License_Shipper_Admin_Fetch_License {
+class Licensesender_Admin_Fetch_License {
 
 	public function __construct() {
 		add_action( 'wp_ajax_ls_admin_fetch_license', array( $this, 'handle' ) );
@@ -11,7 +11,7 @@ class License_Shipper_Admin_Fetch_License {
 		check_ajax_referer( 'ls_fetch_license_api', '_ajax_nonce' );
 
 		if ( ! current_user_can( 'manage_woocommerce' ) && ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'licensesender' ) ) );
 		}
 
 		global $wpdb;
@@ -20,30 +20,35 @@ class License_Shipper_Admin_Fetch_License {
 		$product_id = absint( $_POST['product_id'] ?? 0 );
 
 		if ( ! $order_id || ! $product_id ) {
-			wp_send_json_error( array( 'message' => __( 'Invalid request data.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Invalid request data.', 'licensesender' ) ) );
 		}
 
 		$order = wc_get_order( $order_id );
 		if ( ! $order ) {
-			wp_send_json_error( array( 'message' => __( 'Order not found.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Order not found.', 'licensesender' ) ) );
 		}
 
 		if ( $order->get_status() !== 'completed' ) {
-			wp_send_json_error( array( 'message' => __( 'Order must be completed.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Order must be completed.', 'licensesender' ) ) );
 		}
 
 		$quantity = ls_count_expected_keys_for_product_in_order( $order, $product_id );
 		if ( $quantity <= 0 ) {
-			wp_send_json_error( array( 'message' => __( 'Product not found in order.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'Product not found in order.', 'licensesender' ) ) );
 		}
 
-		if ( ! ls_is_license_shipper_enabled( $product_id ) ) {
-			wp_send_json_error( array( 'message' => __( 'License Shipper is disabled for this product.', 'license-shipper' ) ) );
+		if ( ! ls_is_licensesender_enabled( $product_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'licensesender is disabled for this product.', 'licensesender' ) ) );
 		}
 
 		$mapped_sku = ls_get_mapped_sku( $product_id );
 		if ( ! $mapped_sku ) {
-			wp_send_json_error( array( 'message' => __( 'No mapped SKU found for this product.', 'license-shipper' ) ) );
+			wp_send_json_error( array( 'message' => __( 'No mapped SKU found for this product.', 'licensesender' ) ) );
+		}
+
+		$lock = ls_acquire_fetch_lock( $order_id, $product_id );
+		if ( is_wp_error( $lock ) ) {
+			wp_send_json_error( array( 'message' => $lock->get_error_message() ) );
 		}
 
 		$table = $wpdb->prefix . 'ls_cached_licenses';
@@ -57,25 +62,27 @@ class License_Shipper_Admin_Fetch_License {
 		);
 
 		if ( $existing >= $quantity ) {
-			wp_send_json_error( array( 'message' => __( 'License already fetched for this product.', 'license-shipper' ) ) );
+			ls_release_fetch_lock( $order_id, $product_id );
+			wp_send_json_error( array( 'message' => __( 'License already fetched for this product.', 'licensesender' ) ) );
 		}
 
 		$need = $quantity - $existing;
 
-		$api = License_Shipper_Api::fetch_license(
+		$api = Licensesender_Api::fetch_license(
 			array(
 				'sku'      => $mapped_sku,
 				'quantity' => $need,
 				'order_id' => $order_id,
 				'email'    => $order->get_billing_email(),
-				'source'   => sanitize_title( get_bloginfo( 'name' ) ) . '(admin)',
+				'source'   => sanitize_title( get_bloginfo( 'name' ) ),
 			)
 		);
 
 		if ( empty( $api['success'] ) ) {
+			ls_release_fetch_lock( $order_id, $product_id );
 			wp_send_json_error(
 				array(
-					'message' => $api['message'] ?? __( 'API request failed.', 'license-shipper' ),
+					'message' => $api['message'] ?? __( 'API request failed.', 'licensesender' ),
 					'meta'    => $api['meta'] ?? array(),
 				)
 			);
@@ -85,44 +92,24 @@ class License_Shipper_Admin_Fetch_License {
 		$product_info = $api['product'] ?? array();
 
 		if ( empty( $licenses ) ) {
-			wp_send_json_error( array( 'message' => __( 'API returned no licenses.', 'license-shipper' ) ) );
+			ls_release_fetch_lock( $order_id, $product_id );
+			wp_send_json_error( array( 'message' => __( 'API returned no licenses.', 'licensesender' ) ) );
 		}
 
 		$links               = ls_get_license_product_links( $product_id );
 		$final_download_link = $links['download_link'] ?: ( $product_info['download_link'] ?? '' );
 		$final_guide_link    = $links['activation_guide'] ?: ( $product_info['activation_guide'] ?? '' );
 
-		$saved = 0;
-
-		foreach ( $licenses as $license ) {
-			$key = trim( $license['key'] ?? '' );
-			if ( ! $key ) {
-				continue;
-			}
-
-			$inserted = $wpdb->insert(
-				$table,
-				array(
-					'order_id'         => $order_id,
-					'product_id'       => $product_id,
-					'sku'              => $mapped_sku,
-					'email'            => $order->get_billing_email(),
-					'key_value'        => $key,
-					'download_link'    => $final_download_link,
-					'activation_guide' => $final_guide_link,
-					'source'           => 'admin',
-					'fetched'          => 1,
-				)
-			);
-
-			if ( $inserted ) {
-				++$saved;
-			}
-		}
-
-		if ( $saved === 0 ) {
-			wp_send_json_error( array( 'message' => __( 'Failed to save licenses.', 'license-shipper' ) ) );
-		}
+		LS_License_Cache::save_fetched_licenses(
+			$order_id,
+			$product_id,
+			$mapped_sku,
+			$order->get_billing_email(),
+			$licenses,
+			$final_download_link,
+			$final_guide_link,
+			'admin'
+		);
 
 		LS_License_Email_Service::maybe_schedule_after_fetch( $order, (string) $order->get_billing_email() );
 
@@ -135,9 +122,11 @@ class License_Shipper_Admin_Fetch_License {
 		$fetched_total  = ls_count_fetched_license_keys( $order_id );
 		$all_complete   = $expected_total > 0 && $fetched_total >= $expected_total;
 
+		ls_release_fetch_lock( $order_id, $product_id );
+
 		wp_send_json_success(
 			array(
-				'message'       => __( 'License fetched successfully.', 'license-shipper' ),
+				'message'       => __( 'License fetched successfully.', 'licensesender' ),
 				'html'          => ls_render_admin_order_license_keys_html( $cached, $order ),
 				'progress_html' => sprintf(
 					'<span class="ls-license-progress %s ls-product-progress">%s</span>',
@@ -145,16 +134,16 @@ class License_Shipper_Admin_Fetch_License {
 					esc_html( sprintf( '%d/%d', $fetched_qty, $quantity ) )
 				),
 				'action_html'   => $is_complete
-					? '<span class="ls-status ls-status-success" title="' . esc_attr__( 'All keys fetched', 'license-shipper' ) . '">✔</span>'
+					? '<span class="ls-status ls-status-success" title="' . esc_attr__( 'All keys fetched', 'licensesender' ) . '">✔</span>'
 					: '',
 				'keys_progress' => sprintf( '%d / %d', $fetched_total, $expected_total ),
 				'email_status'  => LS_Admin_Order_Actions::get_email_status_html( $order ),
 				'all_complete'  => $all_complete,
 				'can_resend'    => LS_License_Email_Service::is_enabled() && $all_complete,
-				'count'         => $saved,
+				'count'         => count( $licenses ),
 			)
 		);
 	}
 }
 
-new License_Shipper_Admin_Fetch_License();
+new Licensesender_Admin_Fetch_License();

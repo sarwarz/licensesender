@@ -19,7 +19,7 @@ class LS_Product_List_License_Column {
             $new_columns[$key] = $label;
 
             if ($key === 'sku') {
-                $new_columns['ls_map_status'] = __('Product Mapped', 'license-shipper');
+                $new_columns['ls_map_status'] = __('Product Mapped', 'licensesender');
             }
         }
 

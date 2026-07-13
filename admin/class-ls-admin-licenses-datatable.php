@@ -3,7 +3,7 @@ if ( ! defined('ABSPATH') ) exit;
 
 class LS_Admin_Licenses_Datatables {
 
-    private static $slug = 'ls-license-shipper';
+    private static $slug = 'ls-licensesender';
 
     // Call this early (plugins_loaded)
     public static function boot() {
@@ -26,7 +26,7 @@ class LS_Admin_Licenses_Datatables {
             return;
         }
 
-        if ( empty($_GET['page']) || ! in_array( $_GET['page'], array( self::$slug, 'ls-license-shipper-edit', 'ls-license-shipper-change' ), true ) ) {
+        if ( empty($_GET['page']) || ! in_array( $_GET['page'], array( self::$slug, 'ls-licensesender-edit', 'ls-licensesender-report' ), true ) ) {
             return;
         }
 
@@ -84,9 +84,8 @@ class LS_Admin_Licenses_Datatables {
 
         // Data for JS
         wp_localize_script('ls-licenses-dt-js', 'LSLicensesDT', [
-            'ajaxUrl'     => admin_url('admin-ajax.php'),
-            'nonce'       => wp_create_nonce('ls_dt'),
-            'changeNonce' => wp_create_nonce('ls_change_license'),
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('ls_dt'),
         ]);
 
         
@@ -99,33 +98,32 @@ class LS_Admin_Licenses_Datatables {
             return;
         }
 
-        global $wpdb;
-        $t = $wpdb->prefix . 'ls_cached_licenses';
-        $total    = (int) $wpdb->get_var("SELECT COUNT(*) FROM $t");
-        $orders   = (int) $wpdb->get_var("SELECT COUNT(DISTINCT order_id) FROM $t");
-        $products = (int) $wpdb->get_var("SELECT COUNT(DISTINCT product_id) FROM $t");
-        $emails   = (int) $wpdb->get_var("SELECT COUNT(DISTINCT email) FROM $t WHERE email IS NOT NULL AND email <> ''");
+        $stats = LS_Admin_Service::get_license_stats();
+        $total    = (int) ( $stats['total'] ?? 0 );
+        $orders   = (int) ( $stats['orders'] ?? 0 );
+        $products = (int) ( $stats['products'] ?? 0 );
+        $emails   = (int) ( $stats['emails'] ?? 0 );
         ?>
         <div class="wrap" id="ls-dt-wrap">
-            <h1 class="wp-heading-inline"><?php esc_html_e('License Keys', 'license-shipper'); ?></h1>
+            <h1 class="wp-heading-inline"><?php esc_html_e('License Keys', 'licensesender'); ?></h1>
             <hr class="wp-header-end">
 
             <!-- Summary cards -->
             <div class="ls-cards">
                 <div class="ls-card">
-                    <div class="ls-card__label"><?php esc_html_e('Total Keys','license-shipper');?></div>
+                    <div class="ls-card__label"><?php esc_html_e('Total Keys','licensesender');?></div>
                     <div class="ls-card__value"><?php echo number_format_i18n($total);?></div>
                 </div>
                 <div class="ls-card">
-                    <div class="ls-card__label"><?php esc_html_e('Orders','license-shipper');?></div>
+                    <div class="ls-card__label"><?php esc_html_e('Orders','licensesender');?></div>
                     <div class="ls-card__value"><?php echo number_format_i18n($orders);?></div>
                 </div>
                 <div class="ls-card">
-                    <div class="ls-card__label"><?php esc_html_e('Products','license-shipper');?></div>
+                    <div class="ls-card__label"><?php esc_html_e('LS Products','licensesender');?></div>
                     <div class="ls-card__value"><?php echo number_format_i18n($products);?></div>
                 </div>
                 <div class="ls-card">
-                    <div class="ls-card__label"><?php esc_html_e('Unique Emails','license-shipper');?></div>
+                    <div class="ls-card__label"><?php esc_html_e('Unique Emails','licensesender');?></div>
                     <div class="ls-card__value"><?php echo number_format_i18n($emails);?></div>
                 </div>
             </div>
@@ -135,13 +133,13 @@ class LS_Admin_Licenses_Datatables {
                 <thead>
                 <tr>
                     <th>id</th>
-                    <th><?php esc_html_e('License Key','license-shipper'); ?></th>
-                    <th><?php esc_html_e('Order ID','license-shipper'); ?></th>
-                    <th><?php esc_html_e('Product','license-shipper'); ?></th>
-                    <th><?php esc_html_e('SKU','license-shipper'); ?></th>
-                    <th><?php esc_html_e('Email','license-shipper'); ?></th>
-                    <th><?php esc_html_e('Sold Date','license-shipper'); ?></th>
-                    <th><?php esc_html_e('Action','license-shipper'); ?></th>
+                    <th><?php esc_html_e('License Key','licensesender'); ?></th>
+                    <th><?php esc_html_e('Order ID','licensesender'); ?></th>
+                    <th><?php esc_html_e('Product','licensesender'); ?></th>
+                    <th><?php esc_html_e('SKU','licensesender'); ?></th>
+                    <th><?php esc_html_e('Email','licensesender'); ?></th>
+                    <th><?php esc_html_e('Sold Date','licensesender'); ?></th>
+                    <th><?php esc_html_e('Action','licensesender'); ?></th>
                 </tr>
                 </thead>
             </table>
@@ -177,7 +175,7 @@ class LS_Admin_Licenses_Datatables {
         }
 
         if ( ! current_user_can('manage_woocommerce') && ! current_user_can('manage_options') ) {
-            wp_die( esc_html__('You do not have permission to access this page.', 'license-shipper'), 403 );
+            wp_die( esc_html__('You do not have permission to access this page.', 'licensesender'), 403 );
         }
 
         global $wpdb;
@@ -185,7 +183,7 @@ class LS_Admin_Licenses_Datatables {
 
         $id = isset($_GET['id']) ? absint($_GET['id']) : 0;
         if (!$id) {
-            echo '<div class="notice notice-error"><p>'.esc_html__('Invalid license ID.', 'license-shipper').'</p></div>';
+            echo '<div class="notice notice-error"><p>'.esc_html__('Invalid license ID.', 'licensesender').'</p></div>';
             return;
         }
 
@@ -208,12 +206,12 @@ class LS_Admin_Licenses_Datatables {
                 [ '%d' ]
             );
 
-            echo '<div class="notice notice-success is-dismissible"><p>'.esc_html__('License updated successfully.', 'license-shipper').'</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>'.esc_html__('License updated successfully.', 'licensesender').'</p></div>';
         }
 
         $row = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id));
         if (!$row) {
-            echo '<div class="notice notice-error"><p>'.esc_html__('License not found.', 'license-shipper').'</p></div>';
+            echo '<div class="notice notice-error"><p>'.esc_html__('License not found.', 'licensesender').'</p></div>';
             return;
         }
 
@@ -227,7 +225,7 @@ class LS_Admin_Licenses_Datatables {
           <!-- Header Card -->
           <div class="ls-header-card">
               <h1>Edit License</h1>
-              <p class="ls-subtitle"><?php esc_html_e('Update license details and customer info.','license-shipper'); ?></p>
+              <p class="ls-subtitle"><?php esc_html_e('Update license details and customer info.','licensesender'); ?></p>
           </div>
 
           <!-- Form Card -->
@@ -289,11 +287,11 @@ class LS_Admin_Licenses_Datatables {
 
               <!-- Sticky Footer -->
               <div class="ls-actionbar">
-                  <a href="<?php echo esc_url(admin_url('admin.php?page=ls-license-shipper')); ?>" class="button ls-back-btn">
-                      ← <?php esc_html_e('Back','license-shipper'); ?>
+                  <a href="<?php echo esc_url(admin_url('admin.php?page=ls-licensesender')); ?>" class="button ls-back-btn">
+                      ← <?php esc_html_e('Back','licensesender'); ?>
                   </a>
                   <button type="submit" class="button button-primary ls-save-btn">
-                        <?php esc_html_e('Save Changes','license-shipper'); ?>
+                        <?php esc_html_e('Save Changes','licensesender'); ?>
                   </button>
               </div>
           </form>
@@ -303,14 +301,14 @@ class LS_Admin_Licenses_Datatables {
         <?php
     }
 
-    public static function render_change() {
+    public static function render_report() {
         if ( LS_Admin_Service::uses_react_admin() ) {
             LS_Admin_Assets::render_shell( 'licenses' );
             return;
         }
 
         if ( ! current_user_can('manage_woocommerce') && ! current_user_can('manage_options') ) {
-            wp_die( esc_html__('You do not have permission to access this page.', 'license-shipper'), 403 );
+            wp_die( esc_html__('You do not have permission to access this page.', 'licensesender'), 403 );
         }
 
         global $wpdb;
@@ -318,145 +316,102 @@ class LS_Admin_Licenses_Datatables {
 
         $id = isset($_GET['id']) ? absint($_GET['id']) : 0;
         if (!$id) {
-            echo '<div class="notice notice-error"><p>'.esc_html__('Invalid license ID.', 'license-shipper').'</p></div>';
+            echo '<div class="notice notice-error"><p>'.esc_html__('Invalid license ID.', 'licensesender').'</p></div>';
             return;
         }
 
-        // Handle APPLY (update DB and optional email)
-        if ( ! empty($_POST['ls_change_nonce']) && wp_verify_nonce($_POST['ls_change_nonce'], 'ls_change_license') ) {
-            $new_key     = isset($_POST['new_key_value']) ? sanitize_text_field( wp_unslash($_POST['new_key_value']) ) : '';
-            $new_link    = isset($_POST['new_download_link']) ? esc_url_raw( wp_unslash($_POST['new_download_link']) ) : '';
-            $new_guide   = isset($_POST['new_activation_guide']) ? wp_kses_post( wp_unslash($_POST['new_activation_guide']) ) : '';
-            $notify_user = !empty($_POST['notify_user']) ? true : false;
-
-            // Load current row for email + sku context
-            $row = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id) );
-            if ( ! $row ) {
-                echo '<div class="notice notice-error"><p>'.esc_html__('License not found.', 'license-shipper').'</p></div>';
-                return;
-            }
-
-            // Update DB
-            $wpdb->update(
-                $table,
-                [
-                    'key_value'        => $new_key ?: $row->key_value,
-                    'download_link'    => $new_link,
-                    'activation_guide' => $new_guide,
-                    'source'           => 'changed', // tag it (optional)
-                ],
-                [ 'id' => $id ],
-                [ '%s','%s','%s','%s' ],
-                [ '%d' ]
+        if ( ! empty($_POST['ls_report_nonce']) && wp_verify_nonce($_POST['ls_report_nonce'], 'ls_report_license') ) {
+            $result = LS_Admin_Service::report_license(
+                $id,
+                array(
+                    'reason' => isset($_POST['reason']) ? sanitize_key( wp_unslash($_POST['reason']) ) : 'dead_key',
+                    'mode'   => isset($_POST['mode']) ? sanitize_key( wp_unslash($_POST['mode']) ) : 'auto',
+                    'notes'  => isset($_POST['notes']) ? sanitize_textarea_field( wp_unslash($_POST['notes']) ) : '',
+                )
             );
 
-            // Optional email notify
-            if ( $notify_user && !empty($row->email) && is_email($row->email) ) {
-                $to       = $row->email;
-                $subject  = sprintf( __('Your license for Order #%d has been updated','license-shipper'), (int) $row->order_id );
-                $headers  = ['Content-Type: text/html; charset=UTF-8'];
-                $body     = '<p>'.esc_html__('Hello,','license-shipper').'</p>'.
-                            '<p>'.esc_html__('We updated your license key. Here are the latest details:','license-shipper').'</p>'.
-                            '<p><strong>'.esc_html__('License key:','license-shipper').'</strong> '.esc_html($new_key ?: $row->key_value).'</p>'.
-                            ( $new_link ? '<p><strong>'.esc_html__('Download:','license-shipper').'</strong> <a href="'.esc_url($new_link).'">'.esc_html($new_link).'</a></p>' : '' ).
-                            ( $new_guide ? '<p><strong>'.esc_html__('Activation guide:','license-shipper').'</strong></p><div>'.$new_guide.'</div>' : '' ).
-                            '<p>'.esc_html__('Thank you!','license-shipper').'</p>';
-
-                if ( function_exists('wc_mail') ) {
-                    wc_mail($to, $subject, $body, $headers);
-                } else {
-                    wp_mail($to, $subject, $body, $headers);
-                }
+            if ( is_wp_error( $result ) ) {
+                echo '<div class="notice notice-error"><p>'.esc_html( $result->get_error_message() ).'</p></div>';
+            } else {
+                $report = is_array( $result['report'] ?? null ) ? $result['report'] : array();
+                $msg    = ! empty( $report['replacement_key'] )
+                    ? sprintf( __( 'Key replaced: %s', 'licensesender' ), $report['replacement_key'] )
+                    : __( 'License reported successfully.', 'licensesender' );
+                echo '<div class="notice notice-success is-dismissible"><p>'.esc_html( $msg ).'</p></div>';
             }
-
-            echo '<div class="notice notice-success is-dismissible"><p>'.esc_html__('License changed successfully.', 'license-shipper').'</p></div>';
         }
 
-        // Always reload current row for UI
         $row = $wpdb->get_row( $wpdb->prepare("SELECT * FROM $table WHERE id=%d", $id) );
         if ( ! $row ) {
-            echo '<div class="notice notice-error"><p>'.esc_html__('License not found.', 'license-shipper').'</p></div>';
+            echo '<div class="notice notice-error"><p>'.esc_html__('License not found.', 'licensesender').'</p></div>';
             return;
         }
 
-        // Resolve product name
         $product_name = '';
         if ( !empty($row->product_id) ) {
             $p = wc_get_product($row->product_id);
             if ($p) $product_name = $p->get_name();
         }
 
+        $reasons = array(
+            'dead_key'           => __( 'Dead key', 'licensesender' ),
+            'activation_failed'  => __( 'Activation failed', 'licensesender' ),
+            'invalid_key'        => __( 'Invalid key', 'licensesender' ),
+            'customer_request'   => __( 'Customer request', 'licensesender' ),
+            'other'              => __( 'Other', 'licensesender' ),
+        );
         ?>
         <div class="wrap ls-change-wrap">
-          <!-- Header -->
           <div class="ls-header-card">
-            <h1><?php esc_html_e('Change License','license-shipper'); ?></h1>
-            <p class="ls-subtitle"><?php esc_html_e('Fetch a new license by SKU, preview, and apply.','license-shipper'); ?></p>
+            <h1><?php esc_html_e('Report Key','licensesender'); ?></h1>
+            <p class="ls-subtitle"><?php esc_html_e('Report a dead or issue key to LicenseSender for auto or manual replacement.','licensesender'); ?></p>
           </div>
 
-          <!-- One form card, stacked rows -->
           <form method="post" class="ls-card ls-form">
-            <?php wp_nonce_field('ls_change_license','ls_change_nonce'); ?>
-            <input type="hidden" name="id" value="<?php echo esc_attr($row->id); ?>">
+            <?php wp_nonce_field('ls_report_license','ls_report_nonce'); ?>
 
-            <!-- Current (existing) license -->
             <div class="ls-field">
-              <label><?php esc_html_e('Current License','license-shipper'); ?></label>
+              <label><?php esc_html_e('Current License','licensesender'); ?></label>
               <input type="text" value="<?php echo esc_attr($row->key_value); ?>" readonly>
             </div>
 
             <div class="ls-field">
-              <label><?php esc_html_e('Customer Email','license-shipper'); ?></label>
-              <input type="text" value="<?php echo esc_attr($row->email ?: '—'); ?>" readonly>
+              <label><?php esc_html_e('Order','licensesender'); ?></label>
+              <input type="text" value="#<?php echo esc_attr( (string) $row->order_id ); ?>" readonly>
             </div>
 
             <div class="ls-field">
-              <label><?php esc_html_e('Product','license-shipper'); ?></label>
+              <label><?php esc_html_e('Product','licensesender'); ?></label>
               <input type="text" value="<?php
                 echo (int)$row->product_id . ( $product_name ? ' – ' . esc_html($product_name) : '' );
               ?>" readonly>
             </div>
 
             <div class="ls-field">
-              <label><?php esc_html_e('SKU','license-shipper'); ?></label>
-              <input type="text" id="ls-change-sku" value="<?php echo esc_attr($row->sku); ?>" readonly>
-            </div>
-
-            <hr class="ls-sep" />
-
-            <!-- New license fetch area -->
-            <div class="ls-field">
-              <label><?php esc_html_e('New License (fetched)','license-shipper'); ?></label>
-              <div class="ls-input-with-btn">
-                <input type="text" id="ls-new-key" name="new_key_value" value="" placeholder="<?php esc_attr_e('Click “Fetch New License”','license-shipper'); ?>">
-                <button type="button" class="button ls-fetch-btn" id="ls-fetch-btn">
-                  <span class="dashicons dashicons-update"></span> <?php esc_html_e('Fetch New License','license-shipper'); ?>
-                </button>
-              </div>
-              <p class="description"><?php esc_html_e('Fetches by SKU; you can still edit the value before applying.','license-shipper'); ?></p>
+              <label for="ls-report-reason"><?php esc_html_e('Reason','licensesender'); ?></label>
+              <select id="ls-report-reason" name="reason">
+                <?php foreach ( $reasons as $value => $label ) : ?>
+                  <option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
+                <?php endforeach; ?>
+              </select>
             </div>
 
             <div class="ls-field">
-              <label for="ls-new-link"><?php esc_html_e('New Download Link','license-shipper'); ?></label>
-              <input type="url" id="ls-new-link" name="new_download_link" value="">
+              <label for="ls-report-mode"><?php esc_html_e('Mode','licensesender'); ?></label>
+              <select id="ls-report-mode" name="mode">
+                <option value="auto"><?php esc_html_e('Auto (replace now if available)','licensesender'); ?></option>
+                <option value="manual"><?php esc_html_e('Manual (log issue for later)','licensesender'); ?></option>
+              </select>
             </div>
 
             <div class="ls-field">
-              <label for="ls-new-guide"><?php esc_html_e('New Activation Guide (HTML/text)','license-shipper'); ?></label>
-              <textarea id="ls-new-guide" name="new_activation_guide" rows="6"></textarea>
+              <label for="ls-report-notes"><?php esc_html_e('Notes (optional)','licensesender'); ?></label>
+              <textarea id="ls-report-notes" name="notes" rows="5" placeholder="<?php esc_attr_e('Customer reported activation failed','licensesender'); ?>"></textarea>
             </div>
 
-            <div class="ls-field ls-inline">
-              <label>
-                <input type="checkbox" name="notify_user" value="1" <?php checked( !empty($row->email) ); ?>>
-                <?php esc_html_e('Email the customer about this change','license-shipper'); ?>
-              </label>
-            </div>
-
-            <!-- Footer -->
             <div class="ls-actionbar">
-              <a href="<?php echo esc_url( admin_url('admin.php?page=ls-license-shipper') ); ?>" class="button ls-back-btn">← <?php esc_html_e('Back','license-shipper'); ?></a>
-              <button type="submit" class="button button-primary ls-save-btn"><?php esc_html_e('Apply Change','license-shipper'); ?></button>
+              <a href="<?php echo esc_url( admin_url('admin.php?page=ls-licensesender') ); ?>" class="button ls-back-btn">← <?php esc_html_e('Back','licensesender'); ?></a>
+              <button type="submit" class="button button-primary ls-save-btn"><?php esc_html_e('Report Key','licensesender'); ?></button>
             </div>
           </form>
         </div>
@@ -470,7 +425,7 @@ class LS_Admin_Licenses_Datatables {
         }
 
         $nonce = isset($_POST['nonce']) ? sanitize_text_field(wp_unslash($_POST['nonce'])) : '';
-        if ( ! wp_verify_nonce($nonce, 'ls_change_license') ) {
+        if ( ! wp_verify_nonce($nonce, 'ls_dt') ) {
             wp_send_json_error(['message' => 'Bad nonce'], 403);
         }
 
@@ -484,7 +439,7 @@ class LS_Admin_Licenses_Datatables {
         $timeout = isset($_POST['timeout']) ? (int) $_POST['timeout'] : 30;
 
         // Ask API for exactly ONE available license for this SKU
-        $api_res = License_Shipper_Api::fetch_one_available_license_by_sku($sku, [
+        $api_res = Licensesender_Api::fetch_one_available_license_by_sku($sku, [
             'sort'    => $sort,    // e.g., 'created_at,asc' or 'id,asc'
             'timeout' => $timeout,
         ]);

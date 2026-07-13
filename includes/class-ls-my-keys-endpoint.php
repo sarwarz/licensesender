@@ -1,8 +1,8 @@
 <?php
 /**
- * LicenseShipper – "My Keys" WooCommerce My Account endpoint
+ * Licensesender – "My Keys" WooCommerce My Account endpoint
  *
- * Text domain: license-shipper
+ * Text domain: licensesender
  */
 
 if ( ! defined('ABSPATH') ) exit;
@@ -23,12 +23,12 @@ class LS_My_Keys_Endpoint {
         add_action('woocommerce_account_' . self::ENDPOINT . '_endpoint', [__CLASS__, 'render_endpoint']);
 
         // AJAX
-        add_action('wp_ajax_licenseshipper_get_key', [__CLASS__, 'ajax_get_key']);
-        add_action('wp_ajax_nopriv_licenseshipper_get_key', [__CLASS__, 'ajax_get_key']);
+        add_action('wp_ajax_licensesender_get_key', [__CLASS__, 'ajax_get_key']);
+        add_action('wp_ajax_nopriv_licensesender_get_key', [__CLASS__, 'ajax_get_key']);
 
         // View cached keys (plural)
-        add_action('wp_ajax_licenseshipper_view_key', [__CLASS__, 'ajax_view_key']);
-        add_action('wp_ajax_nopriv_licenseshipper_view_key', [__CLASS__, 'ajax_view_key']);
+        add_action('wp_ajax_licensesender_view_key', [__CLASS__, 'ajax_view_key']);
+        add_action('wp_ajax_nopriv_licensesender_view_key', [__CLASS__, 'ajax_view_key']);
     }
 
     /** Call on plugin activation */
@@ -59,19 +59,19 @@ class LS_My_Keys_Endpoint {
         foreach ($items as $key => $label) {
             $new[$key] = $label;
             if ($key === 'orders') {
-                $new[self::ENDPOINT] = __(self::MENU_TITLE, 'license-shipper');
+                $new[self::ENDPOINT] = __(self::MENU_TITLE, 'licensesender');
                 $inserted = true;
             }
         }
         if (!$inserted) {
-            $new[self::ENDPOINT] = __(self::MENU_TITLE, 'license-shipper');
+            $new[self::ENDPOINT] = __(self::MENU_TITLE, 'licensesender');
         }
         return $new;
     }
 
     public static function render_endpoint() {
         if (! is_user_logged_in()) {
-            echo '<p>' . esc_html__('You must be logged in to view this page.', 'license-shipper') . '</p>';
+            echo '<p>' . esc_html__('You must be logged in to view this page.', 'licensesender') . '</p>';
             return;
         }
 
@@ -97,11 +97,11 @@ class LS_My_Keys_Endpoint {
         $total_pages  = (int)($q->max_num_pages ?? 1);
 
         echo '<div class="ls-my-keys-wrap">';
-        echo '<h3 class="ls-title">' . esc_html__(self::MENU_TITLE, 'license-shipper') . '</h3>';
-        echo '<p class="ls-subtitle">' . esc_html__('Access your purchased products and retrieve keys.', 'license-shipper') . '</p>';
+        echo '<h3 class="ls-title">' . esc_html__(self::MENU_TITLE, 'licensesender') . '</h3>';
+        echo '<p class="ls-subtitle">' . esc_html__('Access your purchased products and retrieve keys.', 'licensesender') . '</p>';
 
         if (empty($orders)) {
-            echo '<div class="woocommerce-message">' . esc_html__('No products found from your orders yet.', 'license-shipper') . '</div>';
+            echo '<div class="woocommerce-message">' . esc_html__('No products found from your orders yet.', 'licensesender') . '</div>';
             echo '</div>';
             return;
         }
@@ -118,10 +118,10 @@ class LS_My_Keys_Endpoint {
         echo '<div class="ls-table-wrap">';
         echo '<table class="shop_table shop_table_responsive ls-table">';
         echo '<thead><tr>';
-        echo '<th>' . esc_html__('Order', 'license-shipper') . '</th>';
-        echo '<th>' . esc_html__('Product', 'license-shipper') . '</th>';
-        echo '<th>' . esc_html__('Qty', 'license-shipper') . '</th>';
-        echo '<th class="ls-actions-col">' . esc_html__('Action', 'license-shipper') . '</th>';
+        echo '<th>' . esc_html__('Order', 'licensesender') . '</th>';
+        echo '<th>' . esc_html__('Product', 'licensesender') . '</th>';
+        echo '<th>' . esc_html__('Qty', 'licensesender') . '</th>';
+        echo '<th class="ls-actions-col">' . esc_html__('Action', 'licensesender') . '</th>';
         echo '</tr></thead><tbody>';
         foreach ($items as $row) self::render_table_row($row);
         echo '</tbody></table></div>';
@@ -132,14 +132,14 @@ class LS_My_Keys_Endpoint {
             echo '<nav class="ls-pagination">';
 
             if ($paged > 1) {
-                echo '<a class="prev" href="' . esc_url( wc_get_endpoint_url(self::ENDPOINT, $paged - 1, $base) ) . '">&laquo; ' . esc_html__('Previous', 'license-shipper') . '</a>';
+                echo '<a class="prev" href="' . esc_url( wc_get_endpoint_url(self::ENDPOINT, $paged - 1, $base) ) . '">&laquo; ' . esc_html__('Previous', 'licensesender') . '</a>';
             }
             for ($i = 1; $i <= $total_pages; $i++) {
                 $class = $i === $paged ? ' class="current"' : '';
                 echo '<a' . $class . ' href="' . esc_url( wc_get_endpoint_url(self::ENDPOINT, $i, $base) ) . '">' . (int)$i . '</a>';
             }
             if ($paged < $total_pages) {
-                echo '<a class="next" href="' . esc_url( wc_get_endpoint_url(self::ENDPOINT, $paged + 1, $base) ) . '">' . esc_html__('Next', 'license-shipper') . ' &raquo;</a>';
+                echo '<a class="next" href="' . esc_url( wc_get_endpoint_url(self::ENDPOINT, $paged + 1, $base) ) . '">' . esc_html__('Next', 'licensesender') . ' &raquo;</a>';
             }
             echo '</nav>';
         }
@@ -157,7 +157,7 @@ class LS_My_Keys_Endpoint {
                 $product    = $item->get_product();
                 $product_id = $product ? $product->get_id() : (int)$item->get_product_id();
 
-                if ( ! ls_is_license_shipper_enabled($product_id) ) continue;
+                if ( ! ls_is_licensesender_enabled($product_id) ) continue;
 
 
                 $name       = $item->get_name();
@@ -185,9 +185,9 @@ class LS_My_Keys_Endpoint {
     protected static function render_table_row($r) {
         $order_link = sprintf('<a href="%s">%s</a>', esc_url($r['order_url']), '#' . esc_html($r['order_number']));
         echo '<tr>';
-        echo '<td data-title="' . esc_attr__('Order', 'license-shipper') . '">' . $order_link . '</td>';
-        echo '<td data-title="' . esc_attr__('Product', 'license-shipper') . '">' . esc_html($r['product_name']) . '</td>';
-        echo '<td data-title="' . esc_attr__('Qty', 'license-shipper') . '">' . (int)$r['qty'] . '</td>';
+        echo '<td data-title="' . esc_attr__('Order', 'licensesender') . '">' . $order_link . '</td>';
+        echo '<td data-title="' . esc_attr__('Product', 'licensesender') . '">' . esc_html($r['product_name']) . '</td>';
+        echo '<td data-title="' . esc_attr__('Qty', 'licensesender') . '">' . (int)$r['qty'] . '</td>';
         echo '<td class="ls-actions">';
         self::render_actions($r);
         echo '</td>';
@@ -216,17 +216,17 @@ class LS_My_Keys_Endpoint {
          if ( ! self::is_order_license_ready( (int) $r['order_id'] ) ) {
             if ( $order && ! $order->has_status( 'completed' ) ) {
                 echo '<span class="ls-status ls-pending" title="' .
-                     esc_attr__( 'Licenses are available after the order is completed.', 'license-shipper' ) .
+                     esc_attr__( 'Licenses are available after the order is completed.', 'licensesender' ) .
                      '">' .
-                     esc_html__( 'Pending completion', 'license-shipper' ) .
+                     esc_html__( 'Pending completion', 'licensesender' ) .
                      '</span>';
                 return;
             }
 
             echo '<span class="ls-status ls-unmanaged" title="' .
-                 esc_attr__( 'This order was completed by another system. License Shipper did not process this order, so licenses cannot be delivered.', 'license-shipper' ) .
+                 esc_attr__( 'This order was completed by another system. licensesender did not process this order, so licenses cannot be delivered.', 'licensesender' ) .
                  '">' .
-                 esc_html__( 'Undeliverable', 'license-shipper' ) .
+                 esc_html__( 'Undeliverable', 'licensesender' ) .
                  '</span>';
             return;
         }
@@ -250,14 +250,14 @@ class LS_My_Keys_Endpoint {
                 $attrs,
                 esc_attr($r['product_name']),
                 esc_attr( wp_create_nonce('ls_view_key') ),
-                sprintf( esc_html__('View Keys', 'license-shipper'))
+                sprintf( esc_html__('View Keys', 'licensesender'))
             );
         } else {
             printf(
                 '<button type="button" class="button ls-btn-get-key"%s data-nonce="%s">%s</button>',
                 $attrs,
                 esc_attr( wp_create_nonce('ls_get_key') ),
-                esc_html__('Get Keys', 'license-shipper')
+                esc_html__('Get Keys', 'licensesender')
             );
         }
 
@@ -311,7 +311,7 @@ class LS_My_Keys_Endpoint {
         check_ajax_referer('ls_view_key', 'nonce');
 
         if (!is_user_logged_in()) {
-            wp_send_json_error(['message' => __('You must be logged in.', 'license-shipper'), 'code' => 'unauth'], 403);
+            wp_send_json_error(['message' => __('You must be logged in.', 'licensesender'), 'code' => 'unauth'], 403);
         }
 
         $user_id    = get_current_user_id();
@@ -319,17 +319,22 @@ class LS_My_Keys_Endpoint {
         $product_id = isset($_POST['product_id']) ? absint($_POST['product_id']) : 0;
 
         if (!$order_id || !$product_id) {
-            wp_send_json_error(['message' => __('Invalid request.', 'license-shipper'), 'code' => 'bad_req'], 400);
+            wp_send_json_error(['message' => __('Invalid request.', 'licensesender'), 'code' => 'bad_req'], 400);
         }
 
         $order = wc_get_order($order_id);
         if (!$order || (int) $order->get_user_id() !== (int) $user_id) {
-            wp_send_json_error(['message' => __('Order not found or not yours.', 'license-shipper'), 'code' => 'forbidden'], 403);
+            wp_send_json_error(['message' => __('Order not found or not yours.', 'licensesender'), 'code' => 'forbidden'], 403);
         }
 
         $rows = self::get_cached_licenses($order_id, $product_id);
         if (empty($rows)) {
-            wp_send_json_error(['message' => __('No saved keys found.', 'license-shipper'), 'code' => 'not_found'], 404);
+            wp_send_json_error(['message' => __('No saved keys found.', 'licensesender'), 'code' => 'not_found'], 404);
+        }
+
+        if ( class_exists( 'LS_License_Cache' ) ) {
+            LS_License_Cache::sync_order_licenses( $order_id );
+            $rows = self::get_cached_licenses( $order_id, $product_id );
         }
 
         // Build per-row + meta guide links
@@ -384,7 +389,7 @@ class LS_My_Keys_Endpoint {
         check_ajax_referer('ls_get_key', 'nonce');
 
         if (!is_user_logged_in()) {
-            wp_send_json_error(['message' => __('You must be logged in.', 'license-shipper')], 403);
+            wp_send_json_error(['message' => __('You must be logged in.', 'licensesender')], 403);
         }
 
         global $wpdb;
@@ -397,21 +402,21 @@ class LS_My_Keys_Endpoint {
         $posted_qty   = isset($_POST['qnty'])  ? absint($_POST['qnty'])          : 0;
 
         if (!$order_id || !$product_id) {
-            wp_send_json_error(['message' => __('Invalid request.', 'license-shipper')], 400);
+            wp_send_json_error(['message' => __('Invalid request.', 'licensesender')], 400);
         }
 
         $order = wc_get_order($order_id);
         if (!$order) {
-            wp_send_json_error(['message' => __('Order not found.', 'license-shipper')], 404);
+            wp_send_json_error(['message' => __('Order not found.', 'licensesender')], 404);
         }
 
         // Ownership + email
         $order_email = (string) $order->get_billing_email();
         if ($user_id && (int) $order->get_user_id() !== (int) $user_id) {
-            wp_send_json_error(['message' => __('This order does not belong to you.', 'license-shipper')], 403);
+            wp_send_json_error(['message' => __('This order does not belong to you.', 'licensesender')], 403);
         }
         if ($posted_email && strcasecmp($posted_email, $order_email) !== 0) {
-            wp_send_json_error(['message' => __('Unauthorized access to order.', 'license-shipper')], 403);
+            wp_send_json_error(['message' => __('Unauthorized access to order.', 'licensesender')], 403);
         }
         $email = $posted_email ?: $order_email;
 
@@ -430,12 +435,16 @@ class LS_My_Keys_Endpoint {
             }
         }
         if (!$used_product_id) {
-            wp_send_json_error(['message' => __('Product not found in this order.', 'license-shipper')], 404);
+            wp_send_json_error(['message' => __('Product not found in this order.', 'licensesender')], 404);
         }
 
         $expected_qty = ls_count_expected_keys_for_product_in_order( $order, $used_product_id );
 
         // === CACHE FIRST (complete only) ===
+        if ( class_exists( 'LS_License_Cache' ) ) {
+            LS_License_Cache::sync_order_licenses( $order_id );
+        }
+
         $rows = self::get_cached_licenses( $order_id, $used_product_id );
 
         // Helper to build payload (adds id + signed guide_url)
@@ -480,7 +489,7 @@ class LS_My_Keys_Endpoint {
 
         // Completed orders only
         if ( ! in_array( $order->get_status(), array( 'completed' ), true ) ) {
-            wp_send_json_error( array( 'message' => __( 'License can only be fetched for completed orders.', 'license-shipper' ) ), 400 );
+            wp_send_json_error( array( 'message' => __( 'License can only be fetched for completed orders.', 'licensesender' ) ), 400 );
         }
 
         if ( count( $rows ) >= $expected_qty && $expected_qty > 0 ) {
@@ -491,20 +500,25 @@ class LS_My_Keys_Endpoint {
         $need = max( 1, $expected_qty - count( $rows ) );
 
         // Product settings
-        if ( ! ls_is_license_shipper_enabled( $used_product_id ) ) {
-            wp_send_json_error(['message' => __('License Shipper is not enabled for this product.', 'license-shipper')], 400);
+        if ( ! ls_is_licensesender_enabled( $used_product_id ) ) {
+            wp_send_json_error(['message' => __('licensesender is not enabled for this product.', 'licensesender')], 400);
         }
         $mapped_sku = ls_get_mapped_sku( $used_product_id );
         if (empty($mapped_sku)) {
-            wp_send_json_error(['message' => __('This product does not have a mapped SKU.', 'license-shipper')], 400);
+            wp_send_json_error(['message' => __('This product does not have a mapped SKU.', 'licensesender')], 400);
         }
 
         // Call vendor API
-        if (!class_exists('License_Shipper_Api') || !method_exists('License_Shipper_Api', 'fetch_license')) {
-            wp_send_json_error(['message' => __('License API is not available.', 'license-shipper')], 500);
+        if (!class_exists('Licensesender_Api') || !method_exists('Licensesender_Api', 'fetch_license')) {
+            wp_send_json_error(['message' => __('License API is not available.', 'licensesender')], 500);
         }
 
-        $result = License_Shipper_Api::fetch_license([
+        $lock = ls_acquire_fetch_lock( $order_id, $used_product_id );
+        if ( is_wp_error( $lock ) ) {
+            wp_send_json_error( array( 'message' => $lock->get_error_message() ), 409 );
+        }
+
+        $result = Licensesender_Api::fetch_license([
             'sku'      => $mapped_sku,
             'quantity' => $need,
             'order_id' => $order_id,
@@ -513,11 +527,12 @@ class LS_My_Keys_Endpoint {
         ]);
 
         if (empty($result['success'])) {
-            $msg    = $result['message'] ?? __('Request failed', 'license-shipper');
+            ls_release_fetch_lock( $order_id, $used_product_id );
+            $msg    = $result['message'] ?? __('Request failed', 'licensesender');
             $scope  = $result['meta']['scope']  ?? '';
             $reason = $result['meta']['reason'] ?? '';
-            if ($reason) { $msg .= ' ' . sprintf(__('Reason: %s', 'license-shipper'), $reason); }
-            if ($scope)  { $msg .= ' ' . sprintf(__('[%s block]', 'license-shipper'), ucfirst($scope)); }
+            if ($reason) { $msg .= ' ' . sprintf(__('Reason: %s', 'licensesender'), $reason); }
+            if ($scope)  { $msg .= ' ' . sprintf(__('[%s block]', 'licensesender'), ucfirst($scope)); }
             wp_send_json_error([
                 'message'   => $msg,
                 'http_code' => $result['http_code'] ?? null,
@@ -533,29 +548,26 @@ class LS_My_Keys_Endpoint {
         $final_guide_link    = $links['activation_guide'] ?: ( $product_info['activation_guide'] ?? '' );
 
         // Insert into cache
-        foreach ($licenses as $license) {
-            $keyVal = isset($license['key']) ? trim((string) $license['key']) : '';
-            if ($keyVal === '') { continue; }
-            $wpdb->insert(
-                $table,
-                [
-                    'order_id'         => $order_id,
-                    'product_id'       => $used_product_id,
-                    'sku'              => $mapped_sku,
-                    'email'            => $email,
-                    'key_value'        => $keyVal,
-                    'download_link'    => $final_download_link,
-                    'activation_guide' => $final_guide_link,
-                    'source'           => 'api',
-                    'fetched'          => 1,
-                ],
-                ['%d','%d','%s','%s','%s','%s','%s','%s','%d']
-            );
+        LS_License_Cache::save_fetched_licenses(
+            $order_id,
+            $used_product_id,
+            $mapped_sku,
+            $email,
+            $licenses,
+            $final_download_link,
+            $final_guide_link,
+            'api'
+        );
+
+        if ( class_exists( 'LS_License_Email_Service' ) ) {
+            LS_License_Email_Service::maybe_schedule_after_fetch( $order, (string) $email );
         }
 
         // Build final payload from (fresh) cache for consistent shape + signed URLs
         $rows    = self::get_cached_licenses($order_id, $used_product_id);
         $payload = $build_payload($rows);
+
+        ls_release_fetch_lock( $order_id, $used_product_id );
 
         wp_send_json_success($payload);
     }

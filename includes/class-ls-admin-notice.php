@@ -52,17 +52,44 @@ class LS_Admin_Notice {
     }
 
     /**
-     * Render all stored notices
+     * Get pending notices without clearing them.
+     *
+     * @return array<int, array{message: string, type: string}>
+     */
+    public static function get_pending_notices() {
+        $notices = get_transient('ls_admin_notices');
+        return is_array($notices) ? $notices : array();
+    }
+
+    /**
+     * Return pending notices and clear the queue.
+     *
+     * @return array<int, array{message: string, type: string}>
+     */
+    public static function consume_notices() {
+        $notices = self::get_pending_notices();
+        if (!empty($notices)) {
+            delete_transient('ls_admin_notices');
+        }
+        return $notices;
+    }
+
+    /**
+     * Render all stored notices (legacy admin screens only).
      */
     public static function display_notices() {
-        $notices = get_transient('ls_admin_notices');
+        if (class_exists('LS_Admin_Service') && LS_Admin_Service::is_react_admin_screen()) {
+            return;
+        }
 
-        if (!empty($notices)) {
-            foreach ($notices as $notice) {
-                $class = 'notice notice-' . esc_attr($notice['type']) . ' is-dismissible';
-                echo '<div class="' . $class . '"><p>' . esc_html($notice['message']) . '</p></div>';
-            }
-            delete_transient('ls_admin_notices');
+        $notices = self::consume_notices();
+        if (empty($notices)) {
+            return;
+        }
+
+        foreach ($notices as $notice) {
+            $class = 'notice notice-' . esc_attr($notice['type']) . ' is-dismissible';
+            echo '<div class="' . $class . '"><p>' . esc_html($notice['message']) . '</p></div>';
         }
     }
 }

@@ -120,7 +120,7 @@ class LS_License_Email_Service {
 		$headers  = self::build_headers( $context['site_name'] );
 		$subject  = sprintf(
 			/* translators: %s: site name */
-			__( 'Test: %s', 'license-shipper' ),
+			__( 'Test: %s', 'licensesender' ),
 			$context['subject']
 		);
 
@@ -145,8 +145,8 @@ class LS_License_Email_Service {
 		$is_single = $count === 1;
 
 		$default_subject = $is_single
-			? get_option( 'lship_email_subject', __( 'Your License Key', 'license-shipper' ) )
-			: get_option( 'lship_email_subject', sprintf( __( 'Your License Keys from %s', 'license-shipper' ), $site_name ) );
+			? get_option( 'lship_email_subject', __( 'Your License Key', 'licensesender' ) )
+			: get_option( 'lship_email_subject', sprintf( __( 'Your License Keys from %s', 'licensesender' ), $site_name ) );
 
 		$subject_single = get_option( 'lship_email_subject_single', '' );
 		$subject_bulk   = get_option( 'lship_email_subject_bulk', '' );
@@ -156,12 +156,12 @@ class LS_License_Email_Service {
 
 		$intro_default_single = sprintf(
 			/* translators: %s: order date */
-			__( 'Thanks for your purchase on %s. Below is your license key with download and activation links.', 'license-shipper' ),
+			__( 'Thanks for your purchase on %s. Below is your license key with download and activation links.', 'licensesender' ),
 			date_i18n( get_option( 'date_format', 'M j, Y' ), $order->get_date_created() ? $order->get_date_created()->getTimestamp() : time() )
 		);
 		$intro_default_bulk = sprintf(
 			/* translators: %s: order date */
-			__( 'Thanks for your purchase on %s. Below you will find your keys, downloads, and activation guides.', 'license-shipper' ),
+			__( 'Thanks for your purchase on %s. Below you will find your keys, downloads, and activation guides.', 'licensesender' ),
 			date_i18n( get_option( 'date_format', 'M j, Y' ), $order->get_date_created() ? $order->get_date_created()->getTimestamp() : time() )
 		);
 
@@ -173,12 +173,12 @@ class LS_License_Email_Service {
 			'site_name'      => $site_name,
 			'subject'        => $subject,
 			'headline'       => $is_single
-				? __( 'Your license key is ready', 'license-shipper' )
-				: __( 'Your license keys are ready', 'license-shipper' ),
+				? __( 'Your license key is ready', 'licensesender' )
+				: __( 'Your license keys are ready', 'licensesender' ),
 			'intro'          => $is_single
 				? ( get_option( 'lship_email_intro_single', '' ) ?: $intro_default_single )
 				: ( get_option( 'lship_email_intro_bulk', '' ) ?: $intro_default_bulk ),
-			'preheader'      => get_option( 'lship_email_preheader', '' ) ?: __( 'Your license keys and download links are inside.', 'license-shipper' ),
+			'preheader'      => get_option( 'lship_email_preheader', '' ) ?: __( 'Your license keys and download links are inside.', 'licensesender' ),
 			'brand_color'    => get_option( 'lship_brand_color', '#4F46E5' ),
 			'accent_color'   => get_option( 'lship_accent_color', '#0EA5E9' ),
 			'text_color'     => '#111827',
@@ -205,8 +205,8 @@ class LS_License_Email_Service {
 		$count     = count( $licenses );
 
 		$default_subject = $is_single
-			? get_option( 'lship_email_subject', __( 'Your License Key', 'license-shipper' ) )
-			: get_option( 'lship_email_subject', sprintf( __( 'Your License Keys from %s', 'license-shipper' ), $site_name ) );
+			? get_option( 'lship_email_subject', __( 'Your License Key', 'licensesender' ) )
+			: get_option( 'lship_email_subject', sprintf( __( 'Your License Keys from %s', 'licensesender' ), $site_name ) );
 
 		$subject_single = get_option( 'lship_email_subject_single', '' );
 		$subject_bulk   = get_option( 'lship_email_subject_bulk', '' );
@@ -214,19 +214,19 @@ class LS_License_Email_Service {
 			? ( $subject_single ?: $default_subject )
 			: ( $subject_bulk ?: $default_subject );
 
-		$intro_default_single = __( 'Thanks for your purchase. Below is your license key with download and activation links.', 'license-shipper' );
-		$intro_default_bulk   = __( 'Thanks for your purchase. Below you will find your keys, downloads, and activation guides.', 'license-shipper' );
+		$intro_default_single = __( 'Thanks for your purchase. Below is your license key with download and activation links.', 'licensesender' );
+		$intro_default_bulk   = __( 'Thanks for your purchase. Below you will find your keys, downloads, and activation guides.', 'licensesender' );
 
 		$context = array(
 			'site_name'      => $site_name,
 			'subject'        => $subject,
 			'headline'       => $is_single
-				? __( 'Your license key is ready', 'license-shipper' )
-				: __( 'Your license keys are ready', 'license-shipper' ),
+				? __( 'Your license key is ready', 'licensesender' )
+				: __( 'Your license keys are ready', 'licensesender' ),
 			'intro'          => $is_single
 				? ( get_option( 'lship_email_intro_single', '' ) ?: $intro_default_single )
 				: ( get_option( 'lship_email_intro_bulk', '' ) ?: $intro_default_bulk ),
-			'preheader'      => get_option( 'lship_email_preheader', '' ) ?: __( 'Your license keys and download links are inside.', 'license-shipper' ),
+			'preheader'      => get_option( 'lship_email_preheader', '' ) ?: __( 'Your license keys and download links are inside.', 'licensesender' ),
 			'brand_color'    => get_option( 'lship_brand_color', '#4F46E5' ),
 			'accent_color'   => get_option( 'lship_accent_color', '#0EA5E9' ),
 			'text_color'     => '#111827',
@@ -239,7 +239,7 @@ class LS_License_Email_Service {
 			'code_border'    => get_option( 'ls_code_border', '#313244' ),
 			'logo_url'       => esc_url( get_option( 'lship_email_logo', get_site_icon_url() ) ),
 			'support_email'  => is_email( get_option( 'lship_support_email' ) ) ? get_option( 'lship_support_email' ) : get_option( 'admin_email' ),
-			'customer_name'  => esc_html__( 'there', 'license-shipper' ),
+			'customer_name'  => esc_html__( 'there', 'licensesender' ),
 			'order_number'   => '12345',
 			'order_date'     => esc_html( date_i18n( get_option( 'date_format', 'M j, Y' ) ) ),
 			'license_count'  => $count,
@@ -343,10 +343,10 @@ class LS_License_Email_Service {
 				<span style="display:inline-block; padding:6px 10px; background:' . $code_bg . '; color:' . $code_fg . '; border:1px solid ' . $code_border . '; border-radius:6px; font:13px/18px ui-monospace,Menlo,Consolas,monospace;">' . $key_e . '</span>
 			</td>
 			<td class="ls-email-col-download" align="center" style="padding:12px 14px;">
-				<a href="' . esc_url( $download ) . '" target="_blank" rel="noopener noreferrer" style="display:inline-block; padding:8px 14px; text-decoration:none; border-radius:6px; border:1px solid ' . $brand . '; color:' . $brand . '; font:13px Arial,sans-serif;">' . esc_html__( 'Download', 'license-shipper' ) . '</a>
+				<a href="' . esc_url( $download ) . '" target="_blank" rel="noopener noreferrer" style="display:inline-block; padding:8px 14px; text-decoration:none; border-radius:6px; border:1px solid ' . $brand . '; color:' . $brand . '; font:13px Arial,sans-serif;">' . esc_html__( 'Download', 'licensesender' ) . '</a>
 			</td>
 			<td class="ls-email-col-guide" align="center" style="padding:12px 14px;">
-				<a href="' . esc_url( $guide ) . '" target="_blank" rel="noopener noreferrer" style="display:inline-block; padding:8px 14px; text-decoration:none; border-radius:6px; background:' . $accent . '; color:#fff; font:13px Arial,sans-serif;">' . esc_html__( 'Guide', 'license-shipper' ) . '</a>
+				<a href="' . esc_url( $guide ) . '" target="_blank" rel="noopener noreferrer" style="display:inline-block; padding:8px 14px; text-decoration:none; border-radius:6px; background:' . $accent . '; color:#fff; font:13px Arial,sans-serif;">' . esc_html__( 'Guide', 'licensesender' ) . '</a>
 			</td>
 		</tr>';
 	}
@@ -374,7 +374,7 @@ class LS_License_Email_Service {
 		$text_rows = wp_strip_all_tags( str_replace( '</tr>', "\n", $context['rows_html'] ) );
 		$lines[]   = preg_replace( '/\s+/', ' ', trim( $text_rows ) );
 		$lines[]   = '';
-		$lines[]   = sprintf( __( 'Need help? Contact us at %s', 'license-shipper' ), $context['support_email'] );
+		$lines[]   = sprintf( __( 'Need help? Contact us at %s', 'licensesender' ), $context['support_email'] );
 		$lines[]   = $context['site_name'] . ' — ' . home_url();
 
 		return implode( "\n", array_filter( $lines ) );
@@ -428,9 +428,9 @@ class LS_License_Email_Service {
 	}
 
 	private static function log_failure( int $order_id, string $email ): void {
-		$message = sprintf( 'License Shipper: failed to send license email for order %d to %s', $order_id, $email );
+		$message = sprintf( 'licensesender: failed to send license email for order %d to %s', $order_id, $email );
 		if ( function_exists( 'wc_get_logger' ) ) {
-			wc_get_logger()->error( $message, array( 'source' => 'license-shipper' ) );
+			wc_get_logger()->error( $message, array( 'source' => 'licensesender' ) );
 		} else {
 			error_log( $message );
 		}

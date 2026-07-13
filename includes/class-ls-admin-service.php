@@ -2,12 +2,51 @@
 /**
  * Shared admin business logic for REST and legacy AJAX handlers.
  *
- * @package License_Shipper
+ * @package Licensesender
  */
 
 defined( 'ABSPATH' ) || exit;
 
 class LS_Admin_Service {
+
+	/**
+	 * licensesender admin page slugs.
+	 *
+	 * @return string[]
+	 */
+	public static function get_admin_page_slugs() {
+		return array(
+			'ls-dashboard',
+			'ls-licensesender',
+			'ls-licensesender-edit',
+			'ls-licensesender-report',
+			'ls-licensesender-settings',
+			'ls-licensesender-download-links',
+			'ls-activation-guides',
+			'ls-wholesale-applications',
+			'ls-setup',
+		);
+	}
+
+	/**
+	 * Whether the current request is a licensesender admin screen.
+	 *
+	 * @param string|null $page Optional page slug override.
+	 */
+	public static function is_plugin_admin_page( $page = null ) {
+		if ( $page === null ) {
+			$page = isset( $_GET['page'] ) ? sanitize_text_field( wp_unslash( $_GET['page'] ) ) : '';
+		}
+
+		return in_array( $page, self::get_admin_page_slugs(), true );
+	}
+
+	/**
+	 * Whether the current screen uses the React admin shell.
+	 */
+	public static function is_react_admin_screen() {
+		return self::uses_react_admin() && self::is_plugin_admin_page();
+	}
 
 	/**
 	 * Whether the React admin UI should be used.
@@ -41,8 +80,101 @@ class LS_Admin_Service {
 		return array(
 			'total'    => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$table}" ),
 			'orders'   => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT order_id) FROM {$table}" ),
-			'products' => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT product_id) FROM {$table}" ),
+			'products' => self::count_licensesender_wc_products(),
 			'emails'   => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT email) FROM {$table} WHERE email IS NOT NULL AND email <> ''" ),
+		);
+	}
+
+	/**
+	 * Count published WooCommerce products with LicenseSender enabled.
+	 */
+	public static function count_licensesender_wc_products() {
+		$query = new WP_Query(
+			array(
+				'post_type'              => 'product',
+				'post_status'            => 'publish',
+				'posts_per_page'         => 1,
+				'fields'                 => 'ids',
+				'no_found_rows'          => false,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+				'meta_query'             => array(
+					'relation' => 'AND',
+					array(
+						'key'   => '_ls_enabled',
+						'value' => 'yes',
+					),
+					array(
+						'relation' => 'OR',
+						array(
+							'key'     => '_ls_wholesale_product',
+							'compare' => 'NOT EXISTS',
+						),
+						array(
+							'key'     => '_ls_wholesale_product',
+							'value'   => 'yes',
+							'compare' => '!=',
+						),
+					),
+				),
+			)
+		);
+
+		return (int) $query->found_posts;
+	}
+
+	/**
+	 * Aggregated dashboard payload for the React/legacy dashboard page.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function get_dashboard_data() {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'ls_cached_licenses';
+		$stats = self::get_license_stats();
+
+		$today_start = current_time( 'Y-m-d 00:00:00' );
+		$week_start  = gmdate( 'Y-m-d 00:00:00', strtotime( '-6 days', current_time( 'timestamp' ) ) );
+
+		$stats['today'] = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE created_at >= %s",
+				$today_start
+			)
+		);
+		$stats['week'] = (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$table} WHERE created_at >= %s",
+				$week_start
+			)
+		);
+		$stats['emails_sent'] = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$table} WHERE email_sent = 1"
+		);
+		$stats['emails_pending'] = (int) $wpdb->get_var(
+			"SELECT COUNT(*) FROM {$table} WHERE email_sent = 0 OR email_sent IS NULL"
+		);
+
+		$wholesale_pending = 0;
+		if ( class_exists( 'LS_Wholesale' ) ) {
+			$apps = LS_Wholesale::list_applications( 'pending' );
+			$wholesale_pending = is_array( $apps ) ? count( $apps ) : 0;
+		}
+		$stats['wholesale_pending'] = $wholesale_pending;
+
+		$api_key = (string) get_option( 'lship_api_key', '' );
+		$stats['api_connected'] = $api_key !== '';
+
+		$links = array(
+			'licenses'  => admin_url( 'admin.php?page=ls-licensesender' ),
+			'wholesale' => admin_url( 'admin.php?page=ls-wholesale-applications' ),
+			'settings'  => admin_url( 'admin.php?page=ls-licensesender-settings&tab=api' ),
+		);
+
+		return array(
+			'stats' => $stats,
+			'links' => $links,
 		);
 	}
 
@@ -219,6 +351,8 @@ class LS_Admin_Service {
 		$formatted['download_link']    = (string) ( $row['download_link'] ?? '' );
 		$formatted['activation_guide'] = (string) ( $row['activation_guide'] ?? '' );
 		$formatted['source']           = (string) ( $row['source'] ?? '' );
+		$formatted['remote_license_id'] = (int) ( $row['remote_license_id'] ?? 0 );
+		$formatted['last_synced_at']    = (string) ( $row['last_synced_at'] ?? '' );
 
 		return $formatted;
 	}
@@ -262,64 +396,97 @@ class LS_Admin_Service {
 		return false !== $wpdb->update( $table, $update, array( 'id' => $id ), $format, array( '%d' ) );
 	}
 
-	public static function change_license( $id, $data ) {
+	/**
+	 * Report a dead/issue key via API and update local cache.
+	 *
+	 * @param int                  $id     Local cache row ID.
+	 * @param array<string, mixed> $params Report payload.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function report_license( $id, $params = array() ) {
 		global $wpdb;
 		$table = $wpdb->prefix . 'ls_cached_licenses';
+		$row   = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) );
 
-		$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ) );
 		if ( ! $row ) {
-			return new WP_Error( 'not_found', __( 'License not found.', 'license-shipper' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'License not found.', 'licensesender' ), array( 'status' => 404 ) );
 		}
 
-		$new_key     = isset( $data['new_key_value'] ) ? sanitize_text_field( $data['new_key_value'] ) : '';
-		$new_link    = isset( $data['new_download_link'] ) ? esc_url_raw( $data['new_download_link'] ) : '';
-		$new_guide   = isset( $data['new_activation_guide'] ) ? wp_kses_post( $data['new_activation_guide'] ) : '';
-		$notify_user = ! empty( $data['notify_user'] );
-
-		$wpdb->update(
-			$table,
+		$api_res = Licensesender_Api::report_license(
 			array(
-				'key_value'        => $new_key ?: $row->key_value,
-				'download_link'    => $new_link,
-				'activation_guide' => $new_guide,
-				'source'           => 'changed',
-			),
-			array( 'id' => $id ),
-			array( '%s', '%s', '%s', '%s' ),
-			array( '%d' )
+				'key'      => (string) $row->key_value,
+				'order_id' => (string) $row->order_id,
+				'reason'   => (string) ( $params['reason'] ?? 'dead_key' ),
+				'mode'     => (string) ( $params['mode'] ?? 'auto' ),
+				'notes'    => (string) ( $params['notes'] ?? '' ),
+			)
 		);
 
-		if ( $notify_user && ! empty( $row->email ) && is_email( $row->email ) ) {
-			$to      = $row->email;
-			$subject = sprintf( __( 'Your license for Order #%d has been updated', 'license-shipper' ), (int) $row->order_id );
-			$headers = array( 'Content-Type: text/html; charset=UTF-8' );
-			$body    = '<p>' . esc_html__( 'Hello,', 'license-shipper' ) . '</p>' .
-				'<p>' . esc_html__( 'We updated your license key. Here are the latest details:', 'license-shipper' ) . '</p>' .
-				'<p><strong>' . esc_html__( 'License key:', 'license-shipper' ) . '</strong> ' . esc_html( $new_key ?: $row->key_value ) . '</p>' .
-				( $new_link ? '<p><strong>' . esc_html__( 'Download:', 'license-shipper' ) . '</strong> <a href="' . esc_url( $new_link ) . '">' . esc_html( $new_link ) . '</a></p>' : '' ) .
-				( $new_guide ? '<p><strong>' . esc_html__( 'Activation guide:', 'license-shipper' ) . '</strong></p><div>' . $new_guide . '</div>' : '' ) .
-				'<p>' . esc_html__( 'Thank you!', 'license-shipper' ) . '</p>';
-
-			if ( function_exists( 'wc_mail' ) ) {
-				wc_mail( $to, $subject, $body, $headers );
-			} else {
-				wp_mail( $to, $subject, $body, $headers );
-			}
+		if ( empty( $api_res['success'] ) ) {
+			return new WP_Error(
+				'report_failed',
+				(string) ( $api_res['message'] ?? __( 'Could not report license.', 'licensesender' ) ),
+				array(
+					'status' => ! empty( $api_res['http_code'] ) ? (int) $api_res['http_code'] : 400,
+				)
+			);
 		}
 
-		return self::get_license( $id );
+		$report          = is_array( $api_res['report'] ?? null ) ? $api_res['report'] : array();
+		$replacement_key = trim( (string) ( $report['replacement_key'] ?? '' ) );
+		// Prefer a real license id if the API ever sends one; never use report ticket id.
+		$new_remote_id = (int) ( $report['replacement_license_id'] ?? $report['new_license_id'] ?? 0 );
+
+		if ( $replacement_key !== '' && class_exists( 'LS_License_Cache' ) ) {
+			LS_License_Cache::apply_replacement(
+				(int) $row->order_id,
+				(string) $row->key_value,
+				$replacement_key,
+				$new_remote_id
+			);
+		}
+
+		return array(
+			'message' => (string) ( $api_res['message'] ?? __( 'License reported successfully.', 'licensesender' ) ),
+			'license' => self::get_license( $id ),
+			'report'  => $report,
+		);
+	}
+
+	/**
+	 * Pull licenses from API for an order and update local cache.
+	 *
+	 * @param int  $order_id WooCommerce order ID.
+	 * @param bool $force    Skip debounce.
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function sync_order_licenses( $order_id, $force = false ) {
+		if ( ! class_exists( 'LS_License_Cache' ) ) {
+			return new WP_Error( 'unavailable', __( 'License cache is not available.', 'licensesender' ), array( 'status' => 500 ) );
+		}
+
+		$result = LS_License_Cache::sync_order_licenses( (int) $order_id, (bool) $force );
+		if ( empty( $result['success'] ) ) {
+			return new WP_Error(
+				'sync_failed',
+				(string) ( $result['message'] ?? __( 'Could not sync licenses.', 'licensesender' ) ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return $result;
 	}
 
 	public static function fetch_license_by_sku( $sku, $options = array() ) {
 		$sku = sanitize_text_field( $sku );
 		if ( $sku === '' ) {
-			return new WP_Error( 'missing_sku', __( 'Missing SKU', 'license-shipper' ), array( 'status' => 400 ) );
+			return new WP_Error( 'missing_sku', __( 'Missing SKU', 'licensesender' ), array( 'status' => 400 ) );
 		}
 
 		$sort    = isset( $options['sort'] ) ? sanitize_text_field( $options['sort'] ) : 'id,asc';
 		$timeout = isset( $options['timeout'] ) ? (int) $options['timeout'] : 30;
 
-		$api_res = License_Shipper_Api::fetch_one_available_license_by_sku(
+		$api_res = Licensesender_Api::fetch_one_available_license_by_sku(
 			$sku,
 			array(
 				'sort'    => $sort,
@@ -331,7 +498,7 @@ class LS_Admin_Service {
 			$code = ! empty( $api_res['http_code'] ) ? (int) $api_res['http_code'] : 500;
 			return new WP_Error(
 				'api_error',
-				! empty( $api_res['message'] ) ? (string) $api_res['message'] : __( 'Failed to fetch license.', 'license-shipper' ),
+				! empty( $api_res['message'] ) ? (string) $api_res['message'] : __( 'Failed to fetch license.', 'licensesender' ),
 				array( 'status' => $code, 'meta' => $api_res['meta'] ?? array() )
 			);
 		}
@@ -348,7 +515,7 @@ class LS_Admin_Service {
 		}
 
 		if ( $key_value === '' ) {
-			return new WP_Error( 'not_found', __( 'No license found for this SKU', 'license-shipper' ), array( 'status' => 404 ) );
+			return new WP_Error( 'not_found', __( 'No license found for this SKU', 'licensesender' ), array( 'status' => 404 ) );
 		}
 
 		return array(
@@ -360,29 +527,387 @@ class LS_Admin_Service {
 		);
 	}
 
+	/**
+	 * Page choices for wholesale settings dropdowns.
+	 *
+	 * @return array<int, array{id:string,title:string}>
+	 */
+	public static function get_page_choices() {
+		$choices = array(
+			array(
+				'id'    => '0',
+				'title' => __( '— Select a page —', 'licensesender' ),
+			),
+		);
+
+		$pages = get_pages(
+			array(
+				'sort_column' => 'post_title',
+				'sort_order'  => 'ASC',
+			)
+		);
+
+		foreach ( $pages as $page ) {
+			$choices[] = array(
+				'id'    => (string) $page->ID,
+				'title' => $page->post_title,
+			);
+		}
+
+		return $choices;
+	}
+
+	/**
+	 * WooCommerce payment gateway choices for wholesale settings.
+	 *
+	 * @return array<int, array{id:string,title:string,enabled:bool,is_wallet:bool}>
+	 */
+	public static function get_payment_gateway_choices() {
+		if ( ! function_exists( 'WC' ) ) {
+			return array();
+		}
+
+		if ( is_null( WC()->payment_gateways ) ) {
+			WC()->payment_gateways();
+		}
+
+		$gateways = WC()->payment_gateways()->payment_gateways();
+		$choices  = array();
+
+		foreach ( $gateways as $gateway_id => $gateway ) {
+			if ( ! is_object( $gateway ) ) {
+				continue;
+			}
+
+			$title = method_exists( $gateway, 'get_method_title' ) ? $gateway->get_method_title() : '';
+			if ( $title === '' && method_exists( $gateway, 'get_title' ) ) {
+				$title = $gateway->get_title();
+			}
+
+			$choices[] = array(
+				'id'        => sanitize_key( (string) $gateway_id ),
+				'title'     => $title !== '' ? $title : sanitize_key( (string) $gateway_id ),
+				'enabled'   => isset( $gateway->enabled ) && 'yes' === $gateway->enabled,
+				'is_wallet' => in_array( sanitize_key( (string) $gateway_id ), LS_Wholesale::get_wallet_gateway_ids( $gateways ), true ),
+			);
+		}
+
+		usort(
+			$choices,
+			static function ( $left, $right ) {
+				return strcasecmp( (string) $left['title'], (string) $right['title'] );
+			}
+		);
+
+		return $choices;
+	}
+
+	/**
+	 * Normalize saved wholesale payment gateway IDs.
+	 *
+	 * @param mixed $raw Raw settings value.
+	 * @return string[]
+	 */
+	private static function normalize_wholesale_payment_gateways( $raw ) {
+		if ( is_array( $raw ) ) {
+			$gateway_ids = $raw;
+		} else {
+			$gateway_ids = array_filter( array_map( 'trim', explode( ',', (string) $raw ) ) );
+		}
+
+		$gateway_ids  = array_map( 'sanitize_key', $gateway_ids );
+		$available    = self::get_payment_gateway_choices();
+		$available_ids = wp_list_pluck( $available, 'id' );
+		$valid        = array();
+
+		foreach ( $gateway_ids as $gateway_id ) {
+			if ( in_array( $gateway_id, $available_ids, true ) ) {
+				$valid[] = $gateway_id;
+			}
+		}
+
+		return array_values( array_unique( $valid ) );
+	}
+
+	/**
+	 * Create or update wholesale storefront pages and link them in settings.
+	 *
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function generate_wholesale_pages() {
+		if ( ! current_user_can( 'publish_pages' ) ) {
+			return new WP_Error(
+				'cannot_publish_pages',
+				__( 'You do not have permission to create pages.', 'licensesender' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$apply_id = self::ensure_shortcode_page(
+			'wholesale-apply',
+			__( 'Wholesale Application', 'licensesender' ),
+			'[ls_wholesale_apply]',
+			LS_Wholesale::get_apply_page_id()
+		);
+
+		if ( is_wp_error( $apply_id ) ) {
+			return $apply_id;
+		}
+
+		$catalog_id = self::ensure_shortcode_page(
+			'wholesale',
+			__( 'Wholesale', 'licensesender' ),
+			'[ls_wholesale_catalog]',
+			LS_Wholesale::get_catalog_page_id()
+		);
+
+		if ( is_wp_error( $catalog_id ) ) {
+			return $catalog_id;
+		}
+
+		if ( ! $apply_id || ! $catalog_id ) {
+			return new WP_Error(
+				'page_save_failed',
+				__( 'Could not create one or more wholesale pages.', 'licensesender' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		update_option( 'lship_wholesale_apply_page_id', (int) $apply_id );
+		update_option( 'lship_wholesale_catalog_page_id', (int) $catalog_id );
+
+		clean_post_cache( (int) $apply_id );
+		clean_post_cache( (int) $catalog_id );
+
+		return array(
+			'message'          => __( 'Wholesale pages generated successfully.', 'licensesender' ),
+			'apply_page_id'    => (int) $apply_id,
+			'catalog_page_id'  => (int) $catalog_id,
+			'apply_page_url'   => get_permalink( $apply_id ),
+			'catalog_page_url' => get_permalink( $catalog_id ),
+			'apply_edit_url'   => get_edit_post_link( $apply_id, 'raw' ),
+			'catalog_edit_url' => get_edit_post_link( $catalog_id, 'raw' ),
+			'pages'            => self::get_page_choices(),
+		);
+	}
+
+	/**
+	 * Create or update customer support pages and link them in settings.
+	 *
+	 * @return array<string, mixed>|WP_Error
+	 */
+	public static function generate_support_pages() {
+		if ( ! current_user_can( 'publish_pages' ) ) {
+			return new WP_Error(
+				'cannot_publish_pages',
+				__( 'You do not have permission to create pages.', 'licensesender' ),
+				array( 'status' => 403 )
+			);
+		}
+
+		$open_id = self::ensure_shortcode_page(
+			'support-open-ticket',
+			__( 'Open Support Ticket', 'licensesender' ),
+			'[ls_support_open]',
+			LS_Support::get_open_page_id()
+		);
+
+		if ( is_wp_error( $open_id ) ) {
+			return $open_id;
+		}
+
+		$manage_id = self::ensure_shortcode_page(
+			'support-tickets',
+			__( 'My Support Tickets', 'licensesender' ),
+			'[ls_support_manage]',
+			LS_Support::get_manage_page_id()
+		);
+
+		if ( is_wp_error( $manage_id ) ) {
+			return $manage_id;
+		}
+
+		if ( ! $open_id || ! $manage_id ) {
+			return new WP_Error(
+				'page_save_failed',
+				__( 'Could not create one or more support pages.', 'licensesender' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		update_option( 'lship_support_open_page_id', (int) $open_id );
+		update_option( 'lship_support_manage_page_id', (int) $manage_id );
+
+		clean_post_cache( (int) $open_id );
+		clean_post_cache( (int) $manage_id );
+
+		return array(
+			'message'           => __( 'Support pages generated successfully.', 'licensesender' ),
+			'open_page_id'      => (int) $open_id,
+			'manage_page_id'    => (int) $manage_id,
+			'open_page_url'     => get_permalink( $open_id ),
+			'manage_page_url'   => get_permalink( $manage_id ),
+			'open_edit_url'     => get_edit_post_link( $open_id, 'raw' ),
+			'manage_edit_url'   => get_edit_post_link( $manage_id, 'raw' ),
+			'pages'             => self::get_page_choices(),
+		);
+	}
+
+	/**
+	 * Find a page by slug.
+	 *
+	 * @param string $slug Page slug.
+	 */
+	private static function find_page_by_slug( $slug ) {
+		$slug = sanitize_title( $slug );
+		if ( $slug === '' ) {
+			return 0;
+		}
+
+		$posts = get_posts(
+			array(
+				'post_type'              => 'page',
+				'name'                   => $slug,
+				'post_status'            => array( 'publish', 'draft', 'private', 'pending' ),
+				'posts_per_page'         => 1,
+				'orderby'                => 'ID',
+				'order'                  => 'ASC',
+				'suppress_filters'       => true,
+				'no_found_rows'          => true,
+				'update_post_meta_cache' => false,
+				'update_post_term_cache' => false,
+			)
+		);
+
+		if ( ! empty( $posts[0] ) && $posts[0] instanceof WP_Post ) {
+			return (int) $posts[0]->ID;
+		}
+
+		$by_path = get_page_by_path( $slug );
+		if ( $by_path instanceof WP_Post ) {
+			return (int) $by_path->ID;
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Insert or update a page while preserving shortcode markup.
+	 *
+	 * @param array<string, mixed> $args Post args.
+	 * @return int|WP_Error
+	 */
+	private static function save_page_record( array $args ) {
+		$args = wp_slash( $args );
+
+		$unfiltered = current_user_can( 'unfiltered_html' );
+		if ( ! $unfiltered ) {
+			kses_remove_filters();
+		}
+
+		if ( ! empty( $args['ID'] ) ) {
+			$result = wp_update_post( $args, true );
+		} else {
+			if ( empty( $args['post_author'] ) ) {
+				$args['post_author'] = get_current_user_id() ?: 1;
+			}
+			$result = wp_insert_post( $args, true );
+		}
+
+		if ( ! $unfiltered ) {
+			kses_init_filters();
+		}
+
+		if ( is_wp_error( $result ) ) {
+			return $result;
+		}
+
+		if ( ! $result ) {
+			return new WP_Error(
+				'page_save_failed',
+				__( 'Could not save the page.', 'licensesender' ),
+				array( 'status' => 500 )
+			);
+		}
+
+		return (int) $result;
+	}
+
+	/**
+	 * Create or update a storefront page with the required shortcode.
+	 *
+	 * @param string $slug             Page slug.
+	 * @param string $title            Page title.
+	 * @param string $shortcode_markup Shortcode content.
+	 * @param int    $configured_id    Saved page ID from settings.
+	 * @return int|WP_Error
+	 */
+	private static function ensure_shortcode_page( $slug, $title, $shortcode_markup, $configured_id = 0 ) {
+		$page_id = 0;
+
+		if ( $configured_id ) {
+			$configured_post = get_post( $configured_id );
+			if ( $configured_post instanceof WP_Post && $configured_post->post_type === 'page' ) {
+				$page_id = (int) $configured_id;
+			}
+		}
+
+		if ( ! $page_id ) {
+			$page_id = self::find_page_by_slug( $slug );
+		}
+
+		$post_args = array(
+			'post_title'   => $title,
+			'post_name'    => sanitize_title( $slug ),
+			'post_content' => $shortcode_markup,
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+		);
+
+		if ( $page_id ) {
+			$post_args['ID'] = $page_id;
+		}
+
+		return self::save_page_record( $post_args );
+	}
+
+	/**
+	 * @deprecated Use ensure_shortcode_page().
+	 */
+	private static function ensure_wholesale_page( $slug, $title, $shortcode_tag, $shortcode_markup, $configured_id = 0 ) {
+		unset( $shortcode_tag );
+		return self::ensure_shortcode_page( $slug, $title, $shortcode_markup, $configured_id );
+	}
+
 	public static function get_settings( $tab = 'general' ) {
 		$tab = sanitize_text_field( $tab );
 
 		switch ( $tab ) {
 			case 'api':
 				return array(
-					'lship_api_key'      => get_option( 'lship_api_key', '' ),
-					'lship_api_base_url' => get_option( 'lship_api_base_url', 'https://app.licenseshipper.com/api/' ),
+					'lship_api_key' => get_option( 'lship_api_key', '' ),
 				);
 			case 'email':
 				return array(
-					'lship_email_sender_name'   => get_option( 'lship_email_sender_name', '' ),
-					'lship_email_sender_email'  => get_option( 'lship_email_sender_email', '' ),
-					'lship_email_subject'       => get_option( 'lship_email_subject', '' ),
-					'lship_email_subject_single'=> get_option( 'lship_email_subject_single', '' ),
-					'lship_email_subject_bulk'  => get_option( 'lship_email_subject_bulk', '' ),
-					'lship_email_preheader'     => get_option( 'lship_email_preheader', '' ),
-					'lship_email_intro_single'  => get_option( 'lship_email_intro_single', '' ),
-					'lship_email_intro_bulk'    => get_option( 'lship_email_intro_bulk', '' ),
-					'lship_support_email'       => get_option( 'lship_support_email', '' ),
-					'admin_email'               => get_option( 'admin_email', '' ),
+					'lship_email_sender_name'    => get_option( 'lship_email_sender_name', '' ),
+					'lship_email_sender_email'   => get_option( 'lship_email_sender_email', '' ),
+					'lship_email_subject'        => get_option( 'lship_email_subject', '' ),
+					'lship_email_subject_single' => get_option( 'lship_email_subject_single', '' ),
+					'lship_email_subject_bulk'   => get_option( 'lship_email_subject_bulk', '' ),
+					'lship_email_preheader'      => get_option( 'lship_email_preheader', '' ),
+					'lship_email_intro_single'   => get_option( 'lship_email_intro_single', '' ),
+					'lship_email_intro_bulk'     => get_option( 'lship_email_intro_bulk', '' ),
+					'lship_support_email'        => get_option( 'lship_support_email', '' ),
+					'admin_email'                => get_option( 'admin_email', '' ),
+					'lship_email_logo'           => get_option( 'lship_email_logo', '' ),
+					'ls_brand'                   => get_option( 'ls_brand', '#4f46e5' ),
+					'lship_brand_color'          => get_option( 'lship_brand_color', '#4F46E5' ),
 				);
 			case 'design':
+				if ( class_exists( 'LS_Design_System' ) ) {
+					return LS_Design_System::get_settings_payload();
+				}
+
 				return array(
 					'ls_brand'          => get_option( 'ls_brand', '#4f46e5' ),
 					'ls_brand_2'        => get_option( 'ls_brand_2', '#6366f1' ),
@@ -404,10 +929,45 @@ class LS_Admin_Service {
 			case 'popup':
 				return self::get_popup_settings();
 			case 'advance':
+				$webhook_secret = '';
+				$webhook_url    = '';
+				if ( class_exists( 'LS_Webhook_Receiver' ) ) {
+					$webhook_secret = LS_Webhook_Receiver::ensure_secret();
+					$webhook_url    = LS_Webhook_Receiver::get_webhook_url();
+				}
+
 				return array(
-					'lship_sso_enabled'    => get_option( 'lship_sso_enabled', 'no' ),
-					'lship_sso_token'      => get_option( 'lship_sso_token', '' ),
-					'lship_sso_user_email' => get_option( 'lship_sso_user_email', '' ),
+					'lship_sso_enabled'     => get_option( 'lship_sso_enabled', 'no' ),
+					'lship_sso_token'       => get_option( 'lship_sso_token', '' ),
+					'lship_sso_user_email'  => get_option( 'lship_sso_user_email', '' ),
+					'lship_webhook_url'     => $webhook_url,
+					'lship_webhook_secret'  => $webhook_secret,
+				);
+			case 'wholesale':
+				$payment_gateways = self::normalize_wholesale_payment_gateways( get_option( 'lship_wholesale_payment_gateways', array() ) );
+
+				return array(
+					'lship_wholesale_enabled'              => get_option( 'lship_wholesale_enabled', 'yes' ),
+					'lship_wholesale_catalog_per_page'     => (string) get_option( 'lship_wholesale_catalog_per_page', 10 ),
+					'lship_wholesale_low_stock_threshold'  => (string) get_option( 'lship_wholesale_low_stock_threshold', 10 ),
+					'lship_wholesale_min_order_quantity'  => (string) get_option( 'lship_wholesale_min_order_quantity', 0 ),
+					'lship_wholesale_allow_backorders'    => get_option( 'lship_wholesale_allow_backorders', 'no' ),
+					'lship_wholesale_apply_page_id'        => (string) get_option( 'lship_wholesale_apply_page_id', '' ),
+					'lship_wholesale_catalog_page_id'      => (string) get_option( 'lship_wholesale_catalog_page_id', '' ),
+					'lship_wholesale_notify_email'         => get_option( 'lship_wholesale_notify_email', '' ),
+					'lship_wholesale_payment_mode'         => LS_Wholesale::get_payment_mode(),
+					'lship_wholesale_payment_gateways'     => implode( ',', $payment_gateways ),
+					'admin_email'                          => get_option( 'admin_email', '' ),
+					'pages'                                => self::get_page_choices(),
+					'payment_gateway_choices'              => self::get_payment_gateway_choices(),
+				);
+			case 'support':
+				return array(
+					'lship_support_enabled'         => get_option( 'lship_support_enabled', 'yes' ),
+					'lship_support_open_page_id'    => (string) get_option( 'lship_support_open_page_id', '' ),
+					'lship_support_manage_page_id'  => (string) get_option( 'lship_support_manage_page_id', '' ),
+					'lship_support_my_account'      => get_option( 'lship_support_my_account', 'no' ),
+					'pages'                         => self::get_page_choices(),
 				);
 			case 'general':
 			default:
@@ -434,7 +994,7 @@ class LS_Admin_Service {
 				break;
 			case 'api':
 				update_option( 'lship_api_key', sanitize_text_field( $data['lship_api_key'] ?? '' ) );
-				update_option( 'lship_api_base_url', esc_url_raw( $data['lship_api_base_url'] ?? '' ) );
+				delete_transient( 'ls_api_subscription_details' );
 				break;
 			case 'email':
 				if ( isset( $data['lship_email_sender_name'] ) ) {
@@ -465,6 +1025,11 @@ class LS_Admin_Service {
 				}
 				break;
 			case 'design':
+				if ( class_exists( 'LS_Design_System' ) ) {
+					LS_Design_System::save_settings( is_array( $data ) ? $data : array() );
+					break;
+				}
+
 				$design_keys = array(
 					'ls_brand', 'ls_brand_2', 'ls_ring', 'ls_success', 'ls_success_2',
 					'ls_blue_600', 'ls_blue_500', 'ls_amber_500', 'ls_amber_400',
@@ -509,23 +1074,69 @@ class LS_Admin_Service {
 					update_option( 'lship_sso_user_email', sanitize_email( $data['lship_sso_user_email'] ) );
 				}
 				break;
+			case 'wholesale':
+				update_option( 'lship_wholesale_enabled', ( $data['lship_wholesale_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+
+				$per_page = isset( $data['lship_wholesale_catalog_per_page'] ) ? (int) $data['lship_wholesale_catalog_per_page'] : 10;
+				update_option( 'lship_wholesale_catalog_per_page', max( 1, min( 100, $per_page ) ) );
+
+				$threshold = isset( $data['lship_wholesale_low_stock_threshold'] ) ? (int) $data['lship_wholesale_low_stock_threshold'] : 10;
+				update_option( 'lship_wholesale_low_stock_threshold', max( 1, $threshold ) );
+
+				$min_order_quantity = isset( $data['lship_wholesale_min_order_quantity'] ) ? (int) $data['lship_wholesale_min_order_quantity'] : 0;
+				update_option( 'lship_wholesale_min_order_quantity', max( 0, $min_order_quantity ) );
+
+				update_option( 'lship_wholesale_allow_backorders', ( $data['lship_wholesale_allow_backorders'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+
+				update_option( 'lship_wholesale_apply_page_id', absint( $data['lship_wholesale_apply_page_id'] ?? 0 ) );
+				update_option( 'lship_wholesale_catalog_page_id', absint( $data['lship_wholesale_catalog_page_id'] ?? 0 ) );
+
+				if ( ! empty( $data['lship_wholesale_notify_email'] ) && is_email( $data['lship_wholesale_notify_email'] ) ) {
+					update_option( 'lship_wholesale_notify_email', sanitize_email( $data['lship_wholesale_notify_email'] ) );
+				} else {
+					delete_option( 'lship_wholesale_notify_email' );
+				}
+
+				$payment_mode = sanitize_key( $data['lship_wholesale_payment_mode'] ?? LS_Wholesale::PAYMENT_MODE_ALL );
+				if ( ! in_array( $payment_mode, array( LS_Wholesale::PAYMENT_MODE_ALL, LS_Wholesale::PAYMENT_MODE_WALLET, LS_Wholesale::PAYMENT_MODE_CUSTOM ), true ) ) {
+					$payment_mode = LS_Wholesale::PAYMENT_MODE_ALL;
+				}
+				update_option( 'lship_wholesale_payment_mode', $payment_mode );
+				update_option( 'lship_wholesale_payment_gateways', self::normalize_wholesale_payment_gateways( $data['lship_wholesale_payment_gateways'] ?? '' ) );
+				break;
+			case 'support':
+				update_option( 'lship_support_enabled', ( $data['lship_support_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+				update_option( 'lship_support_open_page_id', absint( $data['lship_support_open_page_id'] ?? 0 ) );
+				update_option( 'lship_support_manage_page_id', absint( $data['lship_support_manage_page_id'] ?? 0 ) );
+				$my_account = ( $data['lship_support_my_account'] ?? 'no' ) === 'yes' ? 'yes' : 'no';
+				update_option( 'lship_support_my_account', $my_account );
+				if ( 'yes' === $my_account && class_exists( 'LS_Support_Endpoint' ) ) {
+					LS_Support_Endpoint::add_endpoint();
+					flush_rewrite_rules( false );
+				}
+				break;
 			default:
-				return new WP_Error( 'invalid_tab', __( 'Invalid settings tab.', 'license-shipper' ), array( 'status' => 400 ) );
+				return new WP_Error( 'invalid_tab', __( 'Invalid settings tab.', 'licensesender' ), array( 'status' => 400 ) );
 		}
 
 		return self::get_settings( $tab );
 	}
 
 	public static function ping_api() {
-		$result = License_Shipper_Api::ping();
+		$result = Licensesender_Api::ping();
 		if ( ! empty( $result['success'] ) ) {
+			$result['subscription_details'] = Licensesender_Api::get_subscription_details( true );
 			return $result;
 		}
 		return new WP_Error(
 			'ping_failed',
-			$result['message'] ?? __( 'Unknown error occurred.', 'license-shipper' ),
+			$result['message'] ?? __( 'Unknown error occurred.', 'licensesender' ),
 			array( 'status' => 400, 'meta' => $result['meta'] ?? array() )
 		);
+	}
+
+	public static function get_subscription_details( $force_refresh = false ) {
+		return Licensesender_Api::get_subscription_details( $force_refresh );
 	}
 
 	public static function list_download_links() {
@@ -537,7 +1148,7 @@ class LS_Admin_Service {
 		foreach ( $results as $row ) {
 			$product_name = get_the_title( $row['product_id'] );
 			if ( empty( $product_name ) ) {
-				$product_name = __( '(Product not found)', 'license-shipper' );
+				$product_name = __( '(Product not found)', 'licensesender' );
 			}
 			$data[] = array(
 				'id'           => (int) $row['id'],
@@ -562,7 +1173,7 @@ class LS_Admin_Service {
 
 		$product_name = get_the_title( $record['product_id'] );
 		if ( empty( $product_name ) ) {
-			$product_name = __( '(Product not found)', 'license-shipper' );
+			$product_name = __( '(Product not found)', 'licensesender' );
 		}
 
 		return array(
@@ -582,7 +1193,7 @@ class LS_Admin_Service {
 		$link       = esc_url_raw( $data['link'] ?? '' );
 
 		if ( ! $product_id || empty( $link ) ) {
-			return new WP_Error( 'validation', __( 'Please fill all fields.', 'license-shipper' ), array( 'status' => 400 ) );
+			return new WP_Error( 'validation', __( 'Please fill all fields.', 'licensesender' ), array( 'status' => 400 ) );
 		}
 
 		$duplicate = (int) $wpdb->get_var(
@@ -594,7 +1205,7 @@ class LS_Admin_Service {
 		);
 
 		if ( $duplicate > 0 ) {
-			return new WP_Error( 'duplicate', __( 'A download link already exists for this product.', 'license-shipper' ), array( 'status' => 400 ) );
+			return new WP_Error( 'duplicate', __( 'A download link already exists for this product.', 'licensesender' ), array( 'status' => 400 ) );
 		}
 
 		if ( $id > 0 ) {
@@ -642,7 +1253,7 @@ class LS_Admin_Service {
 		$data    = array();
 
 		foreach ( $results as $row ) {
-			$product_name = __( '(Product Deleted)', 'license-shipper' );
+			$product_name = __( '(Product Deleted)', 'licensesender' );
 			if ( ! empty( $row['product_id'] ) ) {
 				$product = wc_get_product( $row['product_id'] );
 				if ( $product ) {
@@ -682,7 +1293,7 @@ class LS_Admin_Service {
 			$html_content = $record['content'];
 		}
 
-		$product_name = __( '(Product Deleted)', 'license-shipper' );
+		$product_name = __( '(Product Deleted)', 'licensesender' );
 		if ( ! empty( $record['product_id'] ) ) {
 			$product = wc_get_product( $record['product_id'] );
 			if ( $product ) {
@@ -709,22 +1320,24 @@ class LS_Admin_Service {
 
 	public static function get_popup_settings() {
 		return array(
-			'ls_sw_confirm_title'      => get_option( 'ls_sw_confirm_title', __( 'Get license keys?', 'license-shipper' ) ),
-			'ls_sw_confirm_text'       => get_option( 'ls_sw_confirm_text', __( 'We will fetch your license keys for {product}. Continue?', 'license-shipper' ) ),
-			'ls_sw_confirm_btn'        => get_option( 'ls_sw_confirm_btn', __( 'Yes, get keys', 'license-shipper' ) ),
-			'ls_sw_cancel_btn'         => get_option( 'ls_sw_cancel_btn', __( 'Cancel', 'license-shipper' ) ),
+			'ls_sw_confirm_title'      => get_option( 'ls_sw_confirm_title', __( 'Get license keys?', 'licensesender' ) ),
+			'ls_sw_confirm_text'       => get_option( 'ls_sw_confirm_text', __( 'We will fetch your license keys for {product}. Continue?', 'licensesender' ) ),
+			'ls_sw_confirm_btn'        => get_option( 'ls_sw_confirm_btn', __( 'Yes, get keys', 'licensesender' ) ),
+			'ls_sw_cancel_btn'         => get_option( 'ls_sw_cancel_btn', __( 'Cancel', 'licensesender' ) ),
 			'ls_sw_confirm_color'      => get_option( 'ls_sw_confirm_color', '#4f46e5' ),
 			'ls_sw_cancel_color'       => get_option( 'ls_sw_cancel_color', '#6b7280' ),
-			'ls_sw_bulk_title'         => get_option( 'ls_sw_bulk_title', __( 'Fetch All Keys?', 'license-shipper' ) ),
-			'ls_sw_bulk_text'          => get_option( 'ls_sw_bulk_text', __( 'This will retrieve all license keys for this order.', 'license-shipper' ) ),
-			'ls_sw_bulk_confirm_btn'   => get_option( 'ls_sw_bulk_confirm_btn', __( 'Yes, fetch all', 'license-shipper' ) ),
-			'ls_sw_bulk_cancel_btn'    => get_option( 'ls_sw_bulk_cancel_btn', __( 'Cancel', 'license-shipper' ) ),
-			'ls_sw_bulk_done_title'    => get_option( 'ls_sw_bulk_done_title', __( 'Done!', 'license-shipper' ) ),
-			'ls_sw_bulk_done_text'     => get_option( 'ls_sw_bulk_done_text', __( 'All license keys have been processed.', 'license-shipper' ) ),
-			'ls_sw_view_title'         => get_option( 'ls_sw_view_title', __( 'Your License Key', 'license-shipper' ) ),
-			'ls_sw_view_title_many'    => get_option( 'ls_sw_view_title_many', __( 'Your License Keys', 'license-shipper' ) ),
-			'ls_sw_view_copy_all'      => get_option( 'ls_sw_view_copy_all', __( 'Copy All', 'license-shipper' ) ),
-			'ls_sw_view_close'         => get_option( 'ls_sw_view_close', __( 'Close', 'license-shipper' ) ),
+			'ls_sw_bulk_title'         => get_option( 'ls_sw_bulk_title', __( 'Fetch All Keys?', 'licensesender' ) ),
+			'ls_sw_bulk_text'          => get_option( 'ls_sw_bulk_text', __( 'This will retrieve all license keys for this order.', 'licensesender' ) ),
+			'ls_sw_bulk_confirm_btn'   => get_option( 'ls_sw_bulk_confirm_btn', __( 'Yes, fetch all', 'licensesender' ) ),
+			'ls_sw_bulk_cancel_btn'    => get_option( 'ls_sw_bulk_cancel_btn', __( 'Cancel', 'licensesender' ) ),
+			'ls_sw_bulk_done_title'    => get_option( 'ls_sw_bulk_done_title', __( 'Done!', 'licensesender' ) ),
+			'ls_sw_bulk_done_text'     => get_option( 'ls_sw_bulk_done_text', __( 'All license keys have been processed.', 'licensesender' ) ),
+			'ls_sw_view_title'         => get_option( 'ls_sw_view_title', __( 'Your License Key', 'licensesender' ) ),
+			'ls_sw_view_title_many'    => get_option( 'ls_sw_view_title_many', __( 'Your License Keys', 'licensesender' ) ),
+			'ls_sw_view_copy_all'      => get_option( 'ls_sw_view_copy_all', __( 'Copy All', 'licensesender' ) ),
+			'ls_sw_view_close'         => get_option( 'ls_sw_view_close', __( 'Close', 'licensesender' ) ),
+			// Read-only brand reference for "Match brand" in the admin UI.
+			'ls_brand'                 => get_option( 'ls_brand', '#4f46e5' ),
 		);
 	}
 

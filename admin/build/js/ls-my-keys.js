@@ -15,7 +15,7 @@
     e.preventDefault();
     var $btn = $(this);
     var data = {
-      action: 'licenseshipper_view_key',
+      action: 'licensesender_view_key',
       nonce: $btn.data('nonce') || LSMyKeys.viewNonce,
       order_id: $btn.data('order-id'),
       product_id: $btn.data('product-id')
@@ -68,7 +68,7 @@
     var pn    = ($btn.data('product-name') || '').toString();
 
     var data  = {
-      action:     'licenseshipper_get_key',
+      action:     'licensesender_get_key',
       nonce:      $btn.data('nonce') || (window.LSMyKeys && LSMyKeys.nonce),
       order_id:   $btn.data('order-id'),
       product_id: $btn.data('product-id'),
@@ -211,62 +211,101 @@ function showKeysModal(payload, productName){
   if (dl) {
     actions.push(
       '<a class="ls-action-btn ls-download-btn" href="'+ encodeURI(dl) +'" target="_blank" rel="noopener">'
-      + ' ' + (t('downloadSoftware','Software Download')) + '</a>'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+      + '<span>' + (t('downloadSoftware','Software Download')) + '</span></a>'
     );
   }
   if (guide) {
     if (isHttpUrl(guide)) {
       actions.push(
         '<a class="ls-action-btn ls-guide-btn" href="'+ encodeURI(guide) +'" target="_blank" rel="noopener">'
-        + ' ' + t('activationGuide','Software Activation Guide') + '</a>'
+        + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+        + '<span>' + t('activationGuide','Software Activation Guide') + '</span></a>'
       );
     } else {
       actions.push(
         '<button type="button" class="ls-action-btn ls-guide-btn ls-open-guide" data-guide="'+ escAttr(guide) +'">'
-        + ' ' + t('activationGuide','Software Activation Guide') + '</button>'
+        + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+        + '<span>' + t('activationGuide','Software Activation Guide') + '</span></button>'
       );
     }
   }
 
-  // Keys list markup (scrollable container) with copy icon merged into code
-  var listHtml = keys.map(function(k){
+  var listHtml = keys.map(function(k, index){
     return '' +
       '<li class="ls-keys-item">' +
       '  <div class="ls-key-block">' +
+      '    <span class="ls-key-index" aria-hidden="true">' + (index + 1) + '</span>' +
       '    <code class="ls-key-code">' + esc(k) + '</code>' +
       '    <button type="button" class="ls-key-copy" data-key="' + escAttr(k) + '" aria-label="' + t('copy','Copy') + '" title="' + t('copy','Copy') + '">' +
-      '      <svg class="ls-key-copy__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">' +
-      '        <path d="M16 1H6a2 2 0 0 0-2 2v12h2V3h10V1zm3 4H10a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H10V7h9v14z" fill="currentColor"/>' +
+      '      <svg class="ls-key-copy__icon ls-key-copy__icon--copy" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">' +
+      '        <path d="M8 8V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2M6 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>' +
       '      </svg>' +
+      '      <svg class="ls-key-copy__icon ls-key-copy__icon--check" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" focusable="false">' +
+      '        <path d="M5 13l4 4L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '      </svg>' +
+      '      <span class="ls-key-copy__label ls-key-copy__label--idle">' + t('copy','Copy') + '</span>' +
+      '      <span class="ls-key-copy__label ls-key-copy__label--done">' + t('copied','Copied') + '</span>' +
       '    </button>' +
       '  </div>' +
       '</li>';
   }).join('');
 
+  var titleText = keys.length > 1
+    ? t('viewTitleMany', 'Your License Keys')
+    : t('viewTitle', 'Your License Key');
 
-  // Use a scroll wrapper around the UL
-  var html = '<div style="text-align:left;">'
-           +   (productName ? '<div style="font-weight:600; margin-bottom:6px;">'+ esc(productName) +'</div>' : '')
-           +   (email ? ('<div style="margin-bottom:10px;font-size:13px;color:#6b7280;">'
-           +       (email ? '<div><strong>Email:</strong> ' + esc(email) + '</div>' : '')
-           +     '</div>') : '')
-           +   '<div class="ls-keys-scroll"><ul class="ls-keys-list">' + listHtml + '</ul></div>'
-           +   (actions.length ? ('<div class="ls-key-actions">' + actions.join('') + '</div>') : '')
-           + '</div>';
-
+  var html = ''
+    + '<div class="ls-keys-sheet">'
+    +   '<div class="ls-keys-sheet__hero">'
+    +     '<div class="ls-keys-sheet__mark" aria-hidden="true">'
+    +       '<svg width="22" height="22" viewBox="0 0 24 24" fill="none">'
+    +         '<path d="M15 7a4 4 0 1 1-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'
+    +         '<path d="M11 11l-7.5 7.5M6 15l2 2M8 13l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+    +       '</svg>'
+    +     '</div>'
+    +     '<div class="ls-keys-sheet__intro">'
+    +       '<p class="ls-keys-sheet__eyebrow">' + esc(titleText) + '</p>'
+    +       (productName ? '<h3 class="ls-keys-sheet__product">' + esc(productName) + '</h3>' : '')
+    +       '<div class="ls-keys-sheet__meta">'
+    +         '<span class="ls-keys-sheet__chip">' + keys.length + ' ' + (keys.length > 1 ? t('keysLabel','keys') : t('keyLabel','key')) + '</span>'
+    +         (email ? '<span class="ls-keys-sheet__chip ls-keys-sheet__chip--muted">' + esc(email) + '</span>' : '')
+    +       '</div>'
+    +     '</div>'
+    +   '</div>'
+    +   '<div class="ls-keys-scroll"><ul class="ls-keys-list">' + listHtml + '</ul></div>'
+    +   (actions.length ? ('<div class="ls-key-actions">' + actions.join('') + '</div>') : '')
+    + '</div>';
 
   Swal.fire({
-    title: (keys.length > 1 ? t('viewTitleMany', 'Your License Keys') : t('viewTitle', 'Your License Key')),
+    title: '',
     html: html,
-    icon: 'success',
     showCancelButton: true,
     confirmButtonText: t('copyAll', 'Copy All'),
     cancelButtonText: t('close', 'Close'),
-    customClass: { popup: 'ls-keys-modal' } 
+    reverseButtons: true,
+    focusConfirm: false,
+    buttonsStyling: false,
+    customClass: {
+      popup: 'ls-keys-modal',
+      htmlContainer: 'ls-keys-modal__body',
+      actions: 'ls-keys-modal__footer',
+      confirmButton: 'ls-keys-modal__btn ls-keys-modal__btn--primary',
+      cancelButton: 'ls-keys-modal__btn ls-keys-modal__btn--ghost'
+    }
   }).then(function(result){
     if (result.isConfirmed) {
       navigator.clipboard.writeText(keys.join('\n')).then(function(){
-        Swal.fire({ icon:'success', title:t('copied','Copied!'), text:t('keysCopied','Keys copied to clipboard.'), timer: 1400, showConfirmButton:false });
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: t('keysCopied','Keys copied to clipboard.'),
+          showConfirmButton: false,
+          timer: 1600,
+          timerProgressBar: true,
+          customClass: { popup: 'ls-toast' }
+        });
       });
     }
   });
@@ -278,18 +317,26 @@ $(document).on('click', '.ls-open-guide', function(){
   if (!guide) return;
   Swal.fire({
     title: t('activationGuide','Software Activation Guide'),
-    html: '<div style="text-align:left; white-space:pre-wrap;">' + esc(guide) + '</div>',
-    icon: 'info',
-    confirmButtonText: t('close','Close')
+    html: '<div class="ls-guide-content">' + esc(guide) + '</div>',
+    confirmButtonText: t('close','Close'),
+    buttonsStyling: false,
+    customClass: {
+      popup: 'ls-keys-modal ls-guide-modal',
+      confirmButton: 'ls-keys-modal__btn ls-keys-modal__btn--primary'
+    }
   });
 });
 
   // Copy a single key from the SweetAlert content
   $(document).on('click', '.ls-key-copy', function(){
-    var key = $(this).data('key');
+    var $btn = $(this);
+    var key = $btn.data('key');
     if (!key) return;
     navigator.clipboard.writeText(String(key)).then(function(){
-      Swal.fire({ icon:'success', title:t('copied','Copied!'), text:t('keyCopied','License key copied to clipboard.'), timer: 1200, showConfirmButton:false });
+      $btn.addClass('is-copied').attr('aria-label', t('copied','Copied'));
+      window.setTimeout(function(){
+        $btn.removeClass('is-copied').attr('aria-label', t('copy','Copy'));
+      }, 1400);
     });
   });
 

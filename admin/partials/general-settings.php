@@ -1,5 +1,5 @@
 <div class="postbox ls-tab-form" style="max-width: 1000px; padding: 20px;">
-    <h2 class="wp-heading-inline"><?php _e( 'General Settings', 'license-shipper' ); ?></h2>
+    <h2 class="wp-heading-inline"><?php _e( 'General Settings', 'licensesender' ); ?></h2>
      <div id="ls-description">
         <p>These options determine the behavior and operation of the plugin.</p>
     </div>
@@ -24,32 +24,32 @@
             </tr>
 
             <tr>
-                <th scope="row" class="titledesc"><?php _e('Send Email After Redemption', 'license-shipper'); ?></th>
+                <th scope="row" class="titledesc"><?php _e('Send Email After Redemption', 'licensesender'); ?></th>
                 <td class="forminp forminp-checkbox">
                     <fieldset>
                         <legend class="screen-reader-text">
-                            <span><?php _e('Send Email After Redemption', 'license-shipper'); ?></span>
+                            <span><?php _e('Send Email After Redemption', 'licensesender'); ?></span>
                         </legend>
                         <label for="lship_send_email_after_redeem">
                             <input name="lship_send_email_after_redeem" id="lship_send_email_after_redeem" type="checkbox" <?php checked(get_option('lship_send_email_after_redeem'), 'yes'); ?>>
-                            <?php _e('Send an email to the customer after successful redemption.', 'license-shipper'); ?>
+                            <?php _e('Send an email to the customer after successful redemption.', 'licensesender'); ?>
                         </label>
                         <p class="description">
-                            <?php _e('If enabled, the plugin will automatically send a confirmation email with license details after a successful voucher redemption.', 'license-shipper'); ?>
+                            <?php _e('If enabled, the plugin will automatically send a confirmation email with license details after a successful voucher redemption.', 'licensesender'); ?>
                         </p>
                     </fieldset>
                 </td>
             </tr>
 			<tr>
 				<th scope="row" class="titledesc">
-					<?php _e('Enable Variation Support', 'license-shipper'); ?>
-					<span class="woocommerce-help-tip" data-tip="<?php esc_attr_e('If enabled, variation-level license fields will appear on variable products.', 'license-shipper'); ?>"></span>
+					<?php _e('Enable Variation Support', 'licensesender'); ?>
+					<span class="woocommerce-help-tip" data-tip="<?php esc_attr_e('If enabled, variation-level license fields will appear on variable products.', 'licensesender'); ?>"></span>
 				</th>
 
 				<td class="forminp">
 					<fieldset class="ls-fieldset">
 						<legend class="screen-reader-text">
-							<span><?php _e('Enable Variation Support', 'license-shipper'); ?></span>
+							<span><?php _e('Enable Variation Support', 'licensesender'); ?></span>
 						</legend>
 
 						<div class="ls-setting-line">
@@ -69,12 +69,12 @@
 							</label>
 
 							<label class="ls-toggle-label" for="lship_enable_variation_support">
-								<?php _e('Turn on variation-level product mapping fields for variable products.', 'license-shipper'); ?>
+								<?php _e('Turn on variation-level product mapping fields for variable products.', 'licensesender'); ?>
 							</label>
 						</div>
 
 						<p class="description">
-							<?php _e('When enabled, Product mapping fields will be available for each variation of a variable product.', 'license-shipper'); ?>
+							<?php _e('When enabled, Product mapping fields will be available for each variation of a variable product.', 'licensesender'); ?>
 						</p>
 					</fieldset>
 				</td>
@@ -82,12 +82,12 @@
 			<tr class="ls-section-header">
 				<th colspan="2">
 					<h3 style="margin: 20px 0 5px;">
-						<?php _e('Content Management', 'license-shipper'); ?>
+						<?php _e('Content Management', 'licensesender'); ?>
 					</h3>
 					<p class="description" style="margin: 0;">
 						<?php _e(
 							'Control downloadable files and activation guides available for your products.',
-							'license-shipper'
+							'licensesender'
 						); ?>
 					</p>
 				</th>
@@ -95,34 +95,34 @@
 
             <tr>
                 <th scope="row" class="titledesc">
-                    <?php _e('Enable Manage Download Links', 'license-shipper'); ?>
+                    <?php _e('Enable Manage Download Links', 'licensesender'); ?>
                 </th>
                 <td class="forminp forminp-checkbox">
                     <fieldset>
                         <legend class="screen-reader-text">
-                            <span><?php _e('Enable Manage Download Links', 'license-shipper'); ?></span>
+                            <span><?php _e('Enable Manage Download Links', 'licensesender'); ?></span>
                         </legend>
 
                         <label for="lship_enable_manage_downloads">
                             <input name="lship_enable_manage_downloads" id="lship_enable_manage_downloads" type="checkbox" 
                                    value="yes" <?php checked(get_option('lship_enable_manage_downloads'), 'yes'); ?>>
-                            <?php _e('Enable the "Manage Download Links" section in the admin area.', 'license-shipper'); ?>
+                            <?php _e('Enable the "Manage Download Links" section in the admin area.', 'licensesender'); ?>
                         </label>
 
                         <p class="description">
-                            <?php _e('When enabled, administrators can manage product download links directly from the Plugin admin interface.', 'license-shipper'); ?>
+                            <?php _e('When enabled, administrators can manage product download links directly from the Plugin admin interface.', 'licensesender'); ?>
                         </p>
                     </fieldset>
                 </td>
             </tr>
             <tr>
                 <th scope="row" class="titledesc">
-                    <?php _e('Enable Manage Activation Guides', 'license-shipper'); ?>
+                    <?php _e('Enable Manage Activation Guides', 'licensesender'); ?>
                 </th>
                 <td class="forminp forminp-checkbox">
                     <fieldset>
                         <legend class="screen-reader-text">
-                            <span><?php _e('Enable Manage Activation Guides', 'license-shipper'); ?></span>
+                            <span><?php _e('Enable Manage Activation Guides', 'licensesender'); ?></span>
                         </legend>
 
                         <label for="lship_enable_manage_activation_guides">
@@ -131,11 +131,11 @@
                                    type="checkbox"
                                    value="yes"
                                    <?php checked(get_option('lship_enable_manage_activation_guides'), 'yes'); ?>>
-                            <?php _e('Enable the "Manage Activation Guides" section in the admin area.', 'license-shipper'); ?>
+                            <?php _e('Enable the "Manage Activation Guides" section in the admin area.', 'licensesender'); ?>
                         </label>
 
                         <p class="description">
-                            <?php _e('When enabled, administrators can create, edit, and manage activation guides (text or PDF) for each product directly from the plugin admin panel.', 'license-shipper'); ?>
+                            <?php _e('When enabled, administrators can create, edit, and manage activation guides (text or PDF) for each product directly from the plugin admin panel.', 'licensesender'); ?>
                         </p>
                     </fieldset>
                 </td>
@@ -144,7 +144,7 @@
             <tr>
                 <th scope="row"></th>
                 <td>
-                    <?php submit_button(__('Save Settings', 'license-shipper')); ?>
+                    <?php submit_button(__('Save Settings', 'licensesender')); ?>
                 </td>
             </tr>
         </table>    

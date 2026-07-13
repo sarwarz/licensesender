@@ -5,7 +5,7 @@
  *
  * This file is used to markup the admin-facing aspects of the plugin.
  *
- * @link       http://licensshipper.com
+ * @link       https://licensesender.com
  * @since      1.0.0
  *
  * @package    Ls_Admin_Display
@@ -26,12 +26,14 @@ class Ls_Admin_Settings_Display {
         $current_tab = $_GET['tab'] ?? 'general';
 
         $tabs = [
-            'general'                 => __('General Settings', 'license-shipper'),
-            'api'                     => __('API Settings', 'license-shipper'),
-            'email'                   => __('E-Mail Settings', 'license-shipper'),
-            'design'                  => __('Design', 'license-shipper'),
-            'popup'                   => __('PopUp Settings', 'license-shipper'),
-            'advance'                 => __('Advance Settings', 'license-shipper'),
+            'general'                 => __('General', 'licensesender'),
+            'api'                     => __('API', 'licensesender'),
+            'email'                   => __('Email', 'licensesender'),
+            'design'                  => __('Design', 'licensesender'),
+            'popup'                   => __('Pop-ups', 'licensesender'),
+            'wholesale'               => __('Wholesale', 'licensesender'),
+            'support'                 => __('Support', 'licensesender'),
+            'advance'                 => __('Advanced', 'licensesender'),
         ];
 
         ?>
@@ -72,6 +74,14 @@ class Ls_Admin_Settings_Display {
 
                     case 'popup':
                         include plugin_dir_path(dirname(__FILE__)) . '/partials/popup-settings.php';
+                        break;
+
+                    case 'wholesale':
+                        include plugin_dir_path(dirname(__FILE__)) . '/partials/wholesale-settings.php';
+                        break;
+
+                    case 'support':
+                        include plugin_dir_path(dirname(__FILE__)) . '/partials/support-settings.php';
                         break;
 
                     case 'advance':

@@ -1,0 +1,21 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600" role="img" aria-label="Wholesale product">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#eef2ff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="600" rx="48" fill="url(#bg)"/>
+  <rect x="120" y="150" width="360" height="300" rx="36" fill="#fff" stroke="#c7d2fe" stroke-width="8"/>
+  <rect x="168" y="198" width="264" height="24" rx="12" fill="#c7d2fe"/>
+  <rect x="168" y="246" width="180" height="18" rx="9" fill="#e0e7ff"/>
+  <rect x="168" y="286" width="220" height="18" rx="9" fill="#e0e7ff"/>
+  <rect x="168" y="350" width="120" height="48" rx="16" fill="url(#badge)"/>
+  <circle cx="450" cy="150" r="54" fill="url(#badge)"/>
+  <path d="M430 150h40M450 130v40" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+  <text x="300" y="520" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700" fill="#4338ca">Wholesale</text>
+</svg>

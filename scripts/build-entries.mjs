@@ -9,7 +9,7 @@ const srcDir = path.resolve(root, 'admin/src');
 const entriesDir = path.resolve(srcDir, 'entries');
 const outDir = path.resolve(root, 'admin/build');
 
-const entries = ['licenses', 'settings', 'download-links', 'activation-guides'];
+const entries = ['licenses', 'settings', 'download-links', 'activation-guides', 'wholesale', 'dashboard', 'setup'];
 
 for (let index = 0; index < entries.length; index++) {
   const entry = entries[index];

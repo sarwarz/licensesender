@@ -7,7 +7,7 @@
 ## Build
 
 ```bash
-cd wp-content/plugins/license-shipper
+cd wp-content/plugins/licensesender
 npm install
 npm run build
 ```

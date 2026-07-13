@@ -22,17 +22,17 @@ class Ls_Admin_Download_Display {
 
         ?>
         <div class="wrap" id="ls-download-wrapper">
-            <h1 class="wp-heading-inline"><?php _e('Manage Download Links', 'license-shipper'); ?></h1>
-            <a href="#" class="page-title-action" id="ls-add-link-btn"><?php _e('Add New', 'license-shipper'); ?></a>
+            <h1 class="wp-heading-inline"><?php _e('Manage Download Links', 'licensesender'); ?></h1>
+            <a href="#" class="page-title-action" id="ls-add-link-btn"><?php _e('Add New', 'licensesender'); ?></a>
             <hr class="wp-header-end">
 
             <table id="ls-download-links-table" class="wp-list-table widefat striped">
                 <thead>
                     <tr>
-                        <th><?php _e('ID', 'license-shipper'); ?></th>
-                        <th><?php _e('Product', 'license-shipper'); ?></th>
-                        <th><?php _e('Download Link', 'license-shipper'); ?></th>
-                        <th><?php _e('Actions', 'license-shipper'); ?></th>
+                        <th><?php _e('ID', 'licensesender'); ?></th>
+                        <th><?php _e('Product', 'licensesender'); ?></th>
+                        <th><?php _e('Download Link', 'licensesender'); ?></th>
+                        <th><?php _e('Actions', 'licensesender'); ?></th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -46,10 +46,10 @@ class Ls_Admin_Download_Display {
 
                 <table class="form-table">
                     <tr>
-                        <th><label for="ls-product-id"><?php _e('Product', 'license-shipper'); ?></label></th>
+                        <th><label for="ls-product-id"><?php _e('Product', 'licensesender'); ?></label></th>
                         <td>
                             <select name="product_id" id="ls-product-id" style="width:100%;" required>
-                                <option value=""><?php _e('Select a product', 'license-shipper'); ?></option>
+                                <option value=""><?php _e('Select a product', 'licensesender'); ?></option>
                                 <?php foreach ($products as $product): ?>
                                     <option value="<?php echo esc_attr($product->get_id()); ?>">
                                         <?php echo esc_html($product->get_name()); ?>
@@ -59,14 +59,14 @@ class Ls_Admin_Download_Display {
                         </td>
                     </tr>
                     <tr>
-                        <th><label for="ls-link"><?php _e('Download Link', 'license-shipper'); ?></label></th>
+                        <th><label for="ls-link"><?php _e('Download Link', 'licensesender'); ?></label></th>
                         <td><input type="url" name="link" id="ls-link" class="regular-text" required></td>
                     </tr>
                 </table>
 
                 <p class="submit">
-                    <button type="submit" class="button button-primary"><?php _e('Save', 'license-shipper'); ?></button>
-                    <button type="button" class="button ls-modal-close"><?php _e('Cancel', 'license-shipper'); ?></button>
+                    <button type="submit" class="button button-primary"><?php _e('Save', 'licensesender'); ?></button>
+                    <button type="button" class="button ls-modal-close"><?php _e('Cancel', 'licensesender'); ?></button>
                 </p>
             </form>
         </div>

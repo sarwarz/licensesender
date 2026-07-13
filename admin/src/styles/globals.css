@@ -42,6 +42,57 @@
   @apply text-xs font-medium uppercase tracking-wide text-muted-foreground;
 }
 
+/* WP admin caps native selects; keep form controls full-width in sheets */
+#ls-app-root select,
+#ls-app-root textarea,
+#ls-app-root input[type='text'],
+#ls-app-root input[type='url'],
+#ls-app-root input[type='email'] {
+  max-width: none !important;
+  width: 100%;
+}
+
+#ls-app-root .ls-admin-notice-area .ls-plugin-notice p {
+  margin: 0;
+}
+
+/* Reserved tray for other plugins' WordPress notices. */
+.ls-admin-foreign-notices {
+  max-width: 1400px;
+  margin: 0 auto 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ls-admin-foreign-notices:empty {
+  display: none;
+}
+
+.ls-admin-foreign-notices > .notice,
+.ls-admin-foreign-notices > .updated,
+.ls-admin-foreign-notices > .error,
+.ls-admin-foreign-notices > .update-nag {
+  display: block !important;
+  margin: 0 !important;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Hide notices outside the tray so they cannot break page layout. */
+body.ls-admin-screen #wpbody-content > .notice,
+body.ls-admin-screen #wpbody-content > .updated,
+body.ls-admin-screen #wpbody-content > .error,
+body.ls-admin-screen #wpbody-content > .update-nag,
+body.ls-admin-screen .ls-admin-wrap > .notice,
+body.ls-admin-screen .ls-admin-wrap > .updated,
+body.ls-admin-screen .ls-admin-wrap > .error,
+body.ls-admin-screen .ls-admin-app .notice:not(.ls-plugin-notice),
+body.ls-admin-screen .ls-admin-app .updated:not(.ls-plugin-notice),
+body.ls-admin-screen .ls-admin-app .error:not(.ls-plugin-notice) {
+  display: none !important;
+}
+
 #ls-portal-root {
   position: relative;
   z-index: 100000;
