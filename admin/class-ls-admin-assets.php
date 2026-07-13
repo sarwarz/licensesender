@@ -144,6 +144,7 @@ class LS_Admin_Assets {
 			'tab'             => $tab,
 			'brandColor'      => get_option( 'ls_brand', '#4f46e5' ),
 			'pluginVersion'   => defined( 'LICENSESENDER_VERSION' ) ? (string) LICENSESENDER_VERSION : '',
+			'logoUrl'         => plugin_dir_url( __FILE__ ) . 'img/logo.png',
 			'adminUrl'        => admin_url(),
 			'ajaxUrl'         => admin_url( 'admin-ajax.php' ),
 			'activationNonce' => wp_create_nonce( 'ls_activation_guide_nonce' ),

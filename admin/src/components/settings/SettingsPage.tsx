@@ -24,6 +24,7 @@ import { WholesaleSettingsFields, type PageChoice, type PaymentGatewayChoice } f
 import { SupportSettingsFields } from '@/components/settings/SupportSettingsFields';
 import { AdvancedSettingsFields } from '@/components/settings/AdvancedSettingsFields';
 import { ApiSubscriptionCard, type ApiSubscriptionDetails } from '@/components/settings/ApiSubscriptionCard';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -263,29 +264,26 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[1400px] space-y-6 pb-8">
-      <header className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Settings</h1>
-            {pluginVersion ? (
-              <Badge
-                variant="outline"
-                className="border-slate-200 bg-slate-50 font-mono text-[10px] font-medium text-slate-500"
-              >
-                v{pluginVersion}
-              </Badge>
-            ) : null}
-          </div>
-          <p className="mt-1 text-sm text-slate-500">
-            Delivery, storefront, and integration options for LicenseSender.
-          </p>
-        </div>
-
-        <Button onClick={save} disabled={saving || loading} className="h-10 shrink-0 gap-2 px-4">
-          <Save className="h-4 w-4" aria-hidden />
-          {saving ? 'Saving…' : i18n.save || 'Save Changes'}
-        </Button>
-      </header>
+      <PageHeader
+        title="Settings"
+        subtitle="Delivery, storefront, and integration options for LicenseSender."
+        badge={
+          pluginVersion ? (
+            <Badge
+              variant="outline"
+              className="border-slate-200 bg-slate-50 font-mono text-[10px] font-medium text-slate-500"
+            >
+              v{pluginVersion}
+            </Badge>
+          ) : null
+        }
+        actions={
+          <Button onClick={save} disabled={saving || loading} className="h-10 shrink-0 gap-2 px-4">
+            <Save className="h-4 w-4" aria-hidden />
+            {saving ? 'Saving…' : i18n.save || 'Save Changes'}
+          </Button>
+        }
+      />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <aside className="w-full shrink-0 lg:sticky lg:top-6 lg:w-[260px]">

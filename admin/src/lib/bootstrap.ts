@@ -10,6 +10,7 @@ export interface LsAdminBootstrap {
   tab?: string;
   brandColor: string;
   pluginVersion?: string;
+  logoUrl?: string;
   activationNonce?: string;
   ajaxUrl?: string;
   licenseId?: number;

@@ -1,7 +1,8 @@
 /**
- * Keep the licensesender admin menu icon aligned in all states.
+ * Keep the LicenseSender admin menu icon aligned in all states.
+ * Top-level menu slug is ls-dashboard (#toplevel_page_ls-dashboard).
  */
-#adminmenu #toplevel_page_ls-licensesender div.wp-menu-image {
+#adminmenu #toplevel_page_ls-dashboard div.wp-menu-image {
 	display: flex !important;
 	align-items: center;
 	justify-content: center;
@@ -11,7 +12,7 @@
 	text-align: center;
 }
 
-#adminmenu #toplevel_page_ls-licensesender div.wp-menu-image img {
+#adminmenu #toplevel_page_ls-dashboard div.wp-menu-image img {
 	display: block;
 	float: none !important;
 	width: 20px !important;
@@ -25,17 +26,17 @@
 	box-sizing: border-box;
 }
 
-#adminmenu #toplevel_page_ls-licensesender:hover div.wp-menu-image img,
-#adminmenu #toplevel_page_ls-licensesender.wp-has-current-submenu div.wp-menu-image img,
-#adminmenu #toplevel_page_ls-licensesender.current div.wp-menu-image img,
-#adminmenu #toplevel_page_ls-licensesender.opensub div.wp-menu-image img,
-#adminmenu #toplevel_page_ls-licensesender a:focus div.wp-menu-image img {
+#adminmenu #toplevel_page_ls-dashboard:hover div.wp-menu-image img,
+#adminmenu #toplevel_page_ls-dashboard.wp-has-current-submenu div.wp-menu-image img,
+#adminmenu #toplevel_page_ls-dashboard.current div.wp-menu-image img,
+#adminmenu #toplevel_page_ls-dashboard.opensub div.wp-menu-image img,
+#adminmenu #toplevel_page_ls-dashboard a:focus div.wp-menu-image img {
 	opacity: 1;
 	padding: 0 !important;
 	margin: 0 auto !important;
 }
 
-.folded #adminmenu #toplevel_page_ls-licensesender div.wp-menu-image {
+.folded #adminmenu #toplevel_page_ls-dashboard div.wp-menu-image {
 	display: flex !important;
 	align-items: center;
 	justify-content: center;
@@ -43,7 +44,7 @@
 	height: 30px;
 }
 
-.folded #adminmenu #toplevel_page_ls-licensesender div.wp-menu-image img {
+.folded #adminmenu #toplevel_page_ls-dashboard div.wp-menu-image img {
 	padding: 0 !important;
 	margin: 0 auto !important;
 }

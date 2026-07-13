@@ -29,7 +29,7 @@ const STEPS: { id: StepId; labelKey: string }[] = [
 ];
 
 export function SetupWizardPage() {
-  const { i18n, pluginVersion, setup: initialSetup } = getBootstrap();
+  const { i18n, pluginVersion, logoUrl, setup: initialSetup } = getBootstrap();
   const [step, setStep] = useState<StepId>('welcome');
   const [status, setStatus] = useState<SetupStatus>(
     initialSetup || {
@@ -201,9 +201,19 @@ export function SetupWizardPage() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-2xl flex-col px-4 py-6 sm:px-6">
         <header className="flex shrink-0 items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
-              <Settings2 className="h-5 w-5 text-slate-800" />
-            </div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt="LicenseSender"
+                width={40}
+                height={40}
+                className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-slate-200/80"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                <Settings2 className="h-5 w-5 text-slate-800" />
+              </div>
+            )}
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight">LicenseSender</p>
               <p className="text-xs text-slate-500">
