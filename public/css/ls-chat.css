@@ -1,0 +1,157 @@
+.ls-chat-root {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 99999;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+.ls-chat__launcher {
+  border: 0;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  padding: 0.85rem 1.2rem;
+  font-weight: 600;
+  box-shadow: 0 10px 30px rgba(15, 118, 110, 0.35);
+  cursor: pointer;
+}
+
+.ls-chat__panel {
+  position: absolute;
+  right: 0;
+  bottom: 64px;
+  width: min(380px, calc(100vw - 24px));
+  height: min(560px, calc(100vh - 100px));
+  display: flex;
+  flex-direction: column;
+  background: #f7faf9;
+  border: 1px solid #d7e3e0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.18);
+}
+
+.ls-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  background: linear-gradient(135deg, #0f766e, #134e4a);
+  color: #fff;
+}
+
+.ls-chat__icon-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.4rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ls-chat__gate,
+.ls-chat__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.ls-chat__input,
+.ls-chat__textarea {
+  width: 100%;
+  border: 1px solid #c9d9d5;
+  border-radius: 10px;
+  padding: 0.65rem 0.75rem;
+  background: #fff;
+  color: #0f172a;
+  box-sizing: border-box;
+}
+
+.ls-chat__feed {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding-right: 0.15rem;
+}
+
+.ls-chat__bubble {
+  max-width: 88%;
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  font-size: 0.92rem;
+}
+
+.ls-chat__bubble--assistant,
+.ls-chat__bubble--agent,
+.ls-chat__bubble--system {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #d7e3e0;
+}
+
+.ls-chat__bubble--user {
+  align-self: flex-end;
+  background: #0f766e;
+  color: #fff;
+}
+
+.ls-chat__composer {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.ls-chat__actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.ls-chat__btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.65rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ls-chat__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ls-chat__btn--primary {
+  background: #0f766e;
+  color: #fff;
+}
+
+.ls-chat__btn--ghost {
+  background: transparent;
+  color: #0f766e;
+  border: 1px solid #9ec5bf;
+  flex: 1;
+}
+
+.ls-chat__status {
+  min-height: 1.2rem;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
+@media (max-width: 480px) {
+  .ls-chat-root {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .ls-chat__panel {
+    width: calc(100vw - 24px);
+  }
+}

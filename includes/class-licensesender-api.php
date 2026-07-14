@@ -1440,4 +1440,193 @@ class Licensesender_Api {
             $customer_email
         );
     }
+
+    /**
+     * Start a SaaS chat session.
+     *
+     * @param array<string, mixed> $fields Session fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_start( array $fields = array() ) {
+        return static::request_post( 'chat/sessions', $fields );
+    }
+
+    /**
+     * Send a chat message.
+     *
+     * @param int                  $session_id Session ID.
+     * @param string               $token      Public session token.
+     * @param array<string, mixed> $fields     Message fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_send( $session_id, $token, array $fields ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/messages',
+            $fields,
+            (string) $token
+        );
+    }
+
+    /**
+     * Poll chat messages.
+     *
+     * @param int    $session_id Session ID.
+     * @param string $token      Public session token.
+     * @param int    $since_id   Only messages after this ID.
+     * @return array<string, mixed>
+     */
+    public static function chat_poll( $session_id, $token, $since_id = 0 ) {
+        $path = 'chat/sessions/' . absint( $session_id ) . '/messages';
+        if ( $since_id > 0 ) {
+            $path .= '?since_id=' . absint( $since_id );
+        }
+
+        return static::request_chat( 'GET', $path, array(), (string) $token );
+    }
+
+    /**
+     * Escalate chat to a support ticket.
+     *
+     * @param int                  $session_id Session ID.
+     * @param string               $token      Public session token.
+     * @param array<string, mixed> $fields     Escalate fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_escalate( $session_id, $token, array $fields = array() ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/escalate',
+            $fields,
+            (string) $token
+        );
+    }
+
+    /**
+     * Close a chat session.
+     *
+     * @param int    $session_id Session ID.
+     * @param string $token      Public session token.
+     * @return array<string, mixed>
+     */
+    public static function chat_close( $session_id, $token ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/close',
+            array(),
+            (string) $token
+        );
+    }
+
+    /**
+     * Send feedback for an assistant message.
+     *
+     * @param int                  $session_id Session ID.
+     * @param string               $token      Public session token.
+     * @param array<string, mixed> $fields     Feedback fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_feedback( $session_id, $token, array $fields = array() ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/feedback',
+            $fields,
+            (string) $token
+        );
+    }
+
+    /**
+     * Chat request helper (API key + session token).
+     *
+     * @param string               $method HTTP method.
+     * @param string               $path   API path.
+     * @param array<string, mixed> $body   JSON body for POST.
+     * @param string               $token  Session public token.
+     * @return array<string, mixed>
+     */
+    protected static function request_chat( $method, $path, array $body = array(), $token = '' ) {
+        $api_key = static::get_api_key();
+
+        if ( empty( $api_key ) ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'API key is missing. Please set it in licensesender settings.', 'licensesender' ),
+                'http_code' => 0,
+            );
+        }
+
+        $base = static::get_api_base_url();
+        if ( empty( trim( $base ) ) || strpos( $base, '://' ) === false ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'API base URL is missing or invalid. Please set it in licensesender settings.', 'licensesender' ),
+                'http_code' => 0,
+            );
+        }
+
+        $url = trailingslashit( $base ) . ltrim( $path, '/' );
+        $method = strtoupper( (string) $method );
+
+        $headers = array(
+            'X-API-KEY' => $api_key,
+            'Accept'    => 'application/json',
+        );
+
+        if ( $token !== '' ) {
+            $headers['X-Chat-Session-Token'] = $token;
+        }
+
+        $args = array(
+            'method'  => $method,
+            'headers' => $headers,
+            'timeout' => 45,
+        );
+
+        if ( $method === 'POST' ) {
+            $headers['Content-Type'] = 'application/json';
+            $args['headers'] = $headers;
+            $args['body'] = wp_json_encode( $body );
+        }
+
+        $response = wp_remote_request( $url, $args );
+
+        if ( is_wp_error( $response ) ) {
+            return array(
+                'success'   => false,
+                'message'   => 'Request failed: ' . $response->get_error_message(),
+                'http_code' => 0,
+            );
+        }
+
+        $http_code = (int) wp_remote_retrieve_response_code( $response );
+        $raw_body  = wp_remote_retrieve_body( $response );
+        $data      = json_decode( $raw_body, true );
+
+        if ( ! is_array( $data ) ) {
+            return array(
+                'success'   => false,
+                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'http_code' => $http_code,
+            );
+        }
+
+        if ( $http_code < 200 || $http_code >= 300 || empty( $data['success'] ) ) {
+            return array(
+                'success'   => false,
+                'message'   => $data['message'] ?? __( 'API request failed.', 'licensesender' ),
+                'meta'      => $data['meta'] ?? array(),
+                'data'      => $data['data'] ?? array(),
+                'errors'    => $data['errors'] ?? array(),
+                'http_code' => $http_code,
+            );
+        }
+
+        return array(
+            'success'   => true,
+            'message'   => $data['message'] ?? '',
+            'data'      => $data['data'] ?? array(),
+            'meta'      => $data['meta'] ?? array(),
+            'http_code' => $http_code,
+        );
+    }
 }

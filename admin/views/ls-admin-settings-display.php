@@ -33,6 +33,7 @@ class Ls_Admin_Settings_Display {
             'popup'                   => __('Pop-ups', 'licensesender'),
             'wholesale'               => __('Wholesale', 'licensesender'),
             'support'                 => __('Support', 'licensesender'),
+            'chat'                    => __('Live Chat', 'licensesender'),
             'advance'                 => __('Advanced', 'licensesender'),
         ];
 
@@ -82,6 +83,10 @@ class Ls_Admin_Settings_Display {
 
                     case 'support':
                         include plugin_dir_path(dirname(__FILE__)) . '/partials/support-settings.php';
+                        break;
+
+                    case 'chat':
+                        include plugin_dir_path(dirname(__FILE__)) . '/partials/chat-settings.php';
                         break;
 
                     case 'advance':

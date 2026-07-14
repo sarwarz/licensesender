@@ -149,6 +149,7 @@ class Licensesender {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-support.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-support-shortcodes.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-support-endpoint.php';
+		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-chat.php';
 
 		/**
 		 * The class responsible for defining all actions that occur in the admin area.
@@ -251,8 +252,10 @@ class Licensesender {
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'register_wholesale_assets' );
 		$this->loader->add_action( 'wp_enqueue_scripts', $plugin_public, 'register_support_assets' );
 		$this->loader->add_action( 'wp_head', $plugin_public, 'enqueue_custom_styles' );
-		
 
+		if ( class_exists( 'LS_Chat' ) ) {
+			LS_Chat::init();
+		}
 	}
 
 	/**

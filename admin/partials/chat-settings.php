@@ -1,0 +1,51 @@
+<?php
+/**
+ * Live chat settings partial.
+ *
+ * @package Licensesender
+ */
+
+defined( 'ABSPATH' ) || exit;
+?>
+<div class="postbox ls-tab-form" style="max-width: 1000px; padding: 20px;">
+	<h2 class="wp-heading-inline"><?php esc_html_e( 'Live Chat', 'licensesender' ); ?></h2>
+	<p><?php esc_html_e( 'Show a floating AI chat widget on your storefront. Messages are proxied through WordPress — visitors never see your API key.', 'licensesender' ); ?></p>
+
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+		<?php wp_nonce_field( 'ls_save_settings_nonce' ); ?>
+		<input type="hidden" name="action" value="ls_save_settings">
+		<input type="hidden" name="tab" value="chat">
+
+		<table class="form-table" role="presentation">
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Enable live chat', 'licensesender' ); ?></th>
+				<td>
+					<input type="hidden" name="lship_chat_enabled" value="no">
+					<label>
+						<input type="checkbox" name="lship_chat_enabled" value="yes" <?php checked( get_option( 'lship_chat_enabled', 'no' ), 'yes' ); ?>>
+						<?php esc_html_e( 'Show the floating chat widget sitewide (requires a valid API key and chat enabled in LicenseSender SaaS).', 'licensesender' ); ?>
+					</label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><?php esc_html_e( 'Require email before chat', 'licensesender' ); ?></th>
+				<td>
+					<input type="hidden" name="lship_chat_require_email" value="no">
+					<label>
+						<input type="checkbox" name="lship_chat_require_email" value="yes" <?php checked( get_option( 'lship_chat_require_email', 'no' ), 'yes' ); ?>>
+						<?php esc_html_e( 'Ask guests for an email before starting a session.', 'licensesender' ); ?>
+					</label>
+				</td>
+			</tr>
+			<tr>
+				<th scope="row"><label for="lship_chat_welcome"><?php esc_html_e( 'Welcome message', 'licensesender' ); ?></label></th>
+				<td>
+					<textarea name="lship_chat_welcome" id="lship_chat_welcome" rows="3" class="large-text"><?php echo esc_textarea( (string) get_option( 'lship_chat_welcome', '' ) ); ?></textarea>
+					<p class="description"><?php esc_html_e( 'Optional storefront override. If empty, the SaaS welcome message is used after the session starts.', 'licensesender' ); ?></p>
+				</td>
+			</tr>
+		</table>
+
+		<?php submit_button( __( 'Save chat settings', 'licensesender' ) ); ?>
+	</form>
+</div>

@@ -5,6 +5,7 @@ import {
   Headphones,
   KeyRound,
   Mail,
+  MessageCircle,
   MessageSquare,
   Palette,
   Save,
@@ -22,6 +23,7 @@ import { GeneralSettingsFields } from '@/components/settings/GeneralSettingsFiel
 import { PopupSettingsFields } from '@/components/settings/PopupSettingsFields';
 import { WholesaleSettingsFields, type PageChoice, type PaymentGatewayChoice } from '@/components/settings/WholesaleSettingsFields';
 import { SupportSettingsFields } from '@/components/settings/SupportSettingsFields';
+import { ChatSettingsFields } from '@/components/settings/ChatSettingsFields';
 import { AdvancedSettingsFields, type OrderBackfillStatus } from '@/components/settings/AdvancedSettingsFields';
 import { ApiSubscriptionCard, type ApiSubscriptionDetails } from '@/components/settings/ApiSubscriptionCard';
 import { PageHeader } from '@/components/shared/PageHeader';
@@ -96,6 +98,14 @@ const TABS: {
     description: 'Customer support tickets and storefront pages.',
     hint: 'Tickets',
     icon: Headphones,
+    group: 'storefront',
+  },
+  {
+    id: 'chat',
+    label: 'Live Chat',
+    description: 'AI floating chat widget for your storefront.',
+    hint: 'Widget',
+    icon: MessageCircle,
     group: 'storefront',
   },
   {
@@ -449,6 +459,10 @@ export function SettingsPage() {
                             onChange={updateField}
                             onPagesGenerated={setSupportPages}
                           />
+                        )}
+
+                        {t.id === 'chat' && (
+                          <ChatSettingsFields settings={settings} onChange={updateField} />
                         )}
 
                         {t.id === 'advance' && (
