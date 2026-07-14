@@ -9,14 +9,19 @@ defined( 'ABSPATH' ) || exit;
 
 class LS_Order_Push {
 
-	const CRON_HOOK     = 'ls_push_order_to_saas';
-	const META_PUSHED   = '_ls_saas_order_pushed';
-	const META_ATTEMPTS = '_ls_saas_order_push_attempts';
-	const MAX_ATTEMPTS  = 5;
+	const CRON_HOOK         = 'ls_push_order_to_saas';
+	const CRON_BACKFILL     = 'ls_backfill_orders_to_saas';
+	const META_PUSHED       = '_ls_saas_order_pushed';
+	const META_INGEST_ONLY  = '_ls_saas_ingest_only';
+	const META_ATTEMPTS     = '_ls_saas_order_push_attempts';
+	const OPTION_BACKFILL   = 'ls_order_backfill_status';
+	const MAX_ATTEMPTS      = 5;
+	const BACKFILL_BATCH    = 15;
 
 	public static function init() {
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'schedule_push' ), 20, 1 );
 		add_action( self::CRON_HOOK, array( __CLASS__, 'handle_push' ), 10, 1 );
+		add_action( self::CRON_BACKFILL, array( __CLASS__, 'process_backfill_batch' ), 10, 0 );
 	}
 
 	/**
@@ -48,7 +53,7 @@ class LS_Order_Push {
 	}
 
 	/**
-	 * Cron/AS callback: ingest order on SaaS, then fetch/cache licenses.
+	 * Cron/AS callback: ingest order on SaaS, then fetch/cache licenses (new orders only).
 	 *
 	 * @param int $order_id Order ID.
 	 */
@@ -60,16 +65,20 @@ class LS_Order_Push {
 			return;
 		}
 
+		$ingest_only = $order->get_meta( self::META_INGEST_ONLY ) === 'yes';
+
 		if ( $order->get_meta( self::META_PUSHED ) === 'yes' ) {
-			self::auto_deliver_licenses( $order );
+			// Backfilled historical orders must never assign/deliver keys again.
+			if ( ! $ingest_only ) {
+				self::auto_deliver_licenses( $order );
+			}
 			return;
 		}
 
-		$attempts = (int) $order->get_meta( self::META_ATTEMPTS );
-		$result   = Licensesender_Api::ingest_order( self::build_payload( $order ) );
+		$result = self::ingest_order_record( $order );
 
 		if ( empty( $result['success'] ) ) {
-			$attempts++;
+			$attempts = (int) $order->get_meta( self::META_ATTEMPTS ) + 1;
 			$order->update_meta_data( self::META_ATTEMPTS, $attempts );
 			$order->save();
 
@@ -82,10 +91,273 @@ class LS_Order_Push {
 		}
 
 		$order->update_meta_data( self::META_PUSHED, 'yes' );
-		$order->update_meta_data( self::META_ATTEMPTS, $attempts + 1 );
+		$order->update_meta_data( self::META_ATTEMPTS, (int) $order->get_meta( self::META_ATTEMPTS ) + 1 );
 		$order->save();
 
-		self::auto_deliver_licenses( $order );
+		if ( ! $ingest_only ) {
+			self::auto_deliver_licenses( $order );
+		}
+	}
+
+	/**
+	 * Start a background backfill of past completed orders (ingest only — no key delivery).
+	 *
+	 * @return array<string, mixed>
+	 */
+	public static function start_backfill() {
+		if ( ! class_exists( 'WooCommerce' ) ) {
+			return array(
+				'success' => false,
+				'message' => __( 'WooCommerce is required.', 'licensesender' ),
+			);
+		}
+
+		$api_key = (string) get_option( 'lship_api_key', '' );
+		if ( $api_key === '' ) {
+			return array(
+				'success' => false,
+				'message' => __( 'Set your LicenseSender API key before backfilling orders.', 'licensesender' ),
+			);
+		}
+
+		$status = self::get_backfill_status();
+		if ( ! empty( $status['running'] ) ) {
+			return array(
+				'success' => true,
+				'message' => __( 'Backfill is already running.', 'licensesender' ),
+				'status'  => $status,
+			);
+		}
+
+		$pending = self::count_pending_backfill_orders();
+
+		update_option(
+			self::OPTION_BACKFILL,
+			array(
+				'running'    => $pending > 0,
+				'started_at' => current_time( 'mysql' ),
+				'updated_at' => current_time( 'mysql' ),
+				'total'      => $pending,
+				'processed'  => 0,
+				'succeeded'  => 0,
+				'failed'     => 0,
+				'skipped'    => 0,
+				'last_error' => '',
+				'finished'   => $pending === 0,
+			),
+			false
+		);
+
+		if ( $pending === 0 ) {
+			return array(
+				'success' => true,
+				'message' => __( 'No completed LicenseSender orders need backfilling.', 'licensesender' ),
+				'status'  => self::get_backfill_status(),
+			);
+		}
+
+		if ( ! wp_next_scheduled( self::CRON_BACKFILL ) ) {
+			wp_schedule_single_event( time() + 2, self::CRON_BACKFILL );
+		}
+
+		// Run first batch immediately so the admin sees progress without waiting for WP-Cron.
+		self::process_backfill_batch();
+
+		return array(
+			'success' => true,
+			'message' => sprintf(
+				/* translators: %d: order count */
+				__( 'Backfill started for %d completed order(s). Keys will not be re-delivered.', 'licensesender' ),
+				$pending
+			),
+			'status'  => self::get_backfill_status(),
+		);
+	}
+
+	/**
+	 * Process one batch of historical completed orders (ingest-only).
+	 */
+	public static function process_backfill_batch() {
+		$status = self::get_backfill_status( true );
+
+		if ( empty( $status['running'] ) ) {
+			return;
+		}
+
+		$orders = self::query_pending_backfill_orders( self::BACKFILL_BATCH );
+		if ( $orders === array() ) {
+			$status['running']    = false;
+			$status['finished']   = true;
+			$status['updated_at'] = current_time( 'mysql' );
+			update_option( self::OPTION_BACKFILL, $status, false );
+			return;
+		}
+
+		foreach ( $orders as $order ) {
+			if ( ! $order instanceof WC_Order ) {
+				continue;
+			}
+
+			if ( ! ls_order_has_licensesender_product( $order ) ) {
+				$status['skipped']++;
+				$status['processed']++;
+				continue;
+			}
+
+			// Mark ingest-only before push so retries never deliver keys.
+			$order->update_meta_data( self::META_INGEST_ONLY, 'yes' );
+			$order->save();
+
+			$result = self::ingest_order_record( $order );
+
+			if ( empty( $result['success'] ) ) {
+				$status['failed']++;
+				$status['processed']++;
+				$status['last_error'] = (string) ( $result['message'] ?? __( 'Ingest failed.', 'licensesender' ) );
+				continue;
+			}
+
+			$order->update_meta_data( self::META_PUSHED, 'yes' );
+			$order->update_meta_data( self::META_INGEST_ONLY, 'yes' );
+			$order->save();
+
+			$status['succeeded']++;
+			$status['processed']++;
+		}
+
+		$status['updated_at'] = current_time( 'mysql' );
+
+		$still_pending = self::count_pending_backfill_orders();
+		if ( $still_pending < 1 ) {
+			$status['running']  = false;
+			$status['finished'] = true;
+		} else {
+			$status['running'] = true;
+			if ( ! wp_next_scheduled( self::CRON_BACKFILL ) ) {
+				wp_schedule_single_event( time() + 5, self::CRON_BACKFILL );
+			}
+		}
+
+		update_option( self::OPTION_BACKFILL, $status, false );
+	}
+
+	/**
+	 * @param bool $raw Return stored array without defaults when missing.
+	 * @return array<string, mixed>
+	 */
+	public static function get_backfill_status( $raw = false ) {
+		$stored = get_option( self::OPTION_BACKFILL, null );
+		if ( ! is_array( $stored ) ) {
+			if ( $raw ) {
+				return array();
+			}
+
+			$pending = self::count_pending_backfill_orders();
+
+			return array(
+				'running'           => false,
+				'finished'          => false,
+				'total'             => $pending,
+				'processed'         => 0,
+				'succeeded'         => 0,
+				'failed'            => 0,
+				'skipped'           => 0,
+				'pending'           => $pending,
+				'last_error'        => '',
+				'started_at'        => '',
+				'updated_at'        => '',
+			);
+		}
+
+		$stored['pending'] = self::count_pending_backfill_orders();
+
+		return $stored;
+	}
+
+	/**
+	 * @return int
+	 */
+	public static function count_pending_backfill_orders() {
+		if ( ! function_exists( 'wc_get_orders' ) ) {
+			return 0;
+		}
+
+		$ids = self::query_pending_backfill_order_ids( 200 );
+		$count = count( $ids );
+
+		// Coarse scan for UI when many exist; exact total is refined during processing.
+		if ( $count >= 200 ) {
+			return $count; // "at least"
+		}
+
+		$eligible = 0;
+		foreach ( $ids as $id ) {
+			$order = wc_get_order( $id );
+			if ( $order && ls_order_has_licensesender_product( $order ) ) {
+				$eligible++;
+			}
+		}
+
+		return $eligible;
+	}
+
+	/**
+	 * @param int $limit Batch size.
+	 * @return WC_Order[]
+	 */
+	protected static function query_pending_backfill_orders( $limit = 15 ) {
+		$ids = self::query_pending_backfill_order_ids( max( 50, $limit * 4 ) );
+		$out = array();
+
+		foreach ( $ids as $id ) {
+			$order = wc_get_order( $id );
+			if ( ! $order || ! ls_order_has_licensesender_product( $order ) ) {
+				continue;
+			}
+			$out[] = $order;
+			if ( count( $out ) >= $limit ) {
+				break;
+			}
+		}
+
+		return $out;
+	}
+
+	/**
+	 * @param int $limit Max IDs to return.
+	 * @return int[]
+	 */
+	protected static function query_pending_backfill_order_ids( $limit = 50 ) {
+		if ( ! function_exists( 'wc_get_orders' ) ) {
+			return array();
+		}
+
+		$ids = wc_get_orders(
+			array(
+				'type'       => 'shop_order',
+				'status'     => array( 'wc-completed', 'completed' ),
+				'limit'      => (int) $limit,
+				'return'     => 'ids',
+				'orderby'    => 'ID',
+				'order'      => 'ASC',
+				'meta_query' => array(
+					array(
+						'key'     => self::META_PUSHED,
+						'compare' => 'NOT EXISTS',
+					),
+				),
+			)
+		);
+
+		return array_map( 'absint', is_array( $ids ) ? $ids : array() );
+	}
+
+	/**
+	 * @param WC_Order $order Order.
+	 * @return array<string, mixed>
+	 */
+	protected static function ingest_order_record( WC_Order $order ) {
+		return Licensesender_Api::ingest_order( self::build_payload( $order ) );
 	}
 
 	/**
@@ -148,6 +420,7 @@ class LS_Order_Push {
 
 	/**
 	 * Fetch licenses for each mapped line item and cache locally.
+	 * Used only for NEW completed orders — never for historical backfill.
 	 *
 	 * @param WC_Order $order Order.
 	 */
@@ -156,6 +429,10 @@ class LS_Order_Push {
 		$email    = $order->get_billing_email();
 
 		if ( ! $email ) {
+			return;
+		}
+
+		if ( $order->get_meta( self::META_INGEST_ONLY ) === 'yes' ) {
 			return;
 		}
 

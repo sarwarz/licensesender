@@ -942,6 +942,7 @@ class LS_Admin_Service {
 					'lship_sso_user_email'  => get_option( 'lship_sso_user_email', '' ),
 					'lship_webhook_url'     => $webhook_url,
 					'lship_webhook_secret'  => $webhook_secret,
+					'order_backfill'        => class_exists( 'LS_Order_Push' ) ? LS_Order_Push::get_backfill_status() : array(),
 				);
 			case 'wholesale':
 				$payment_gateways = self::normalize_wholesale_payment_gateways( get_option( 'lship_wholesale_payment_gateways', array() ) );

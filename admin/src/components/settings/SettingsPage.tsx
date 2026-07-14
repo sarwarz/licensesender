@@ -22,7 +22,7 @@ import { GeneralSettingsFields } from '@/components/settings/GeneralSettingsFiel
 import { PopupSettingsFields } from '@/components/settings/PopupSettingsFields';
 import { WholesaleSettingsFields, type PageChoice, type PaymentGatewayChoice } from '@/components/settings/WholesaleSettingsFields';
 import { SupportSettingsFields } from '@/components/settings/SupportSettingsFields';
-import { AdvancedSettingsFields } from '@/components/settings/AdvancedSettingsFields';
+import { AdvancedSettingsFields, type OrderBackfillStatus } from '@/components/settings/AdvancedSettingsFields';
 import { ApiSubscriptionCard, type ApiSubscriptionDetails } from '@/components/settings/ApiSubscriptionCard';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -101,7 +101,7 @@ const TABS: {
   {
     id: 'advance',
     label: 'Advanced',
-    description: 'SSO, webhooks, and advanced configuration.',
+    description: 'SSO, webhooks, order sync, and advanced configuration.',
     hint: 'Integrations',
     icon: Shield,
     group: 'system',
@@ -129,6 +129,7 @@ export function SettingsPage() {
   const [paymentGatewayChoices, setPaymentGatewayChoices] = useState<PaymentGatewayChoice[]>([]);
   const [regeneratingSecret, setRegeneratingSecret] = useState(false);
   const [designPresets, setDesignPresets] = useState<DesignPreset[]>([]);
+  const [orderBackfill, setOrderBackfill] = useState<OrderBackfillStatus | null>(null);
 
   const regenerateWebhookSecret = useCallback(async () => {
     if (!window.confirm('Regenerate the webhook secret? Update the secret in LicenseSender after this.')) {
@@ -184,8 +185,9 @@ export function SettingsPage() {
         payment_gateway_choices?: PaymentGatewayChoice[];
         presets?: DesignPreset[];
         preview?: Record<string, string>;
+        order_backfill?: OrderBackfillStatus;
       }>(`settings?tab=${tab}`);
-      const { pages, payment_gateway_choices, presets, preview: _preview, ...rest } = data;
+      const { pages, payment_gateway_choices, presets, preview: _preview, order_backfill, ...rest } = data;
       const settingValues: Record<string, string> = {};
       Object.entries(rest).forEach(([key, value]) => {
         if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
@@ -193,6 +195,9 @@ export function SettingsPage() {
         }
       });
       setSettings(settingValues);
+      if (tab === 'advance') {
+        setOrderBackfill(order_backfill && typeof order_backfill === 'object' ? order_backfill : null);
+      }
       if (tab === 'wholesale' && Array.isArray(pages)) {
         setWholesalePages(pages);
       }
@@ -450,8 +455,10 @@ export function SettingsPage() {
                           <AdvancedSettingsFields
                             settings={settings}
                             regeneratingSecret={regeneratingSecret}
+                            orderBackfill={orderBackfill}
                             onChange={updateField}
                             onRegenerateSecret={regenerateWebhookSecret}
+                            onOrderBackfillChange={setOrderBackfill}
                           />
                         )}
                       </>

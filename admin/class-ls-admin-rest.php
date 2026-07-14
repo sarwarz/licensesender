@@ -379,6 +379,26 @@ class LS_Admin_REST {
 				),
 			)
 		);
+
+		register_rest_route(
+			$namespace,
+			'/orders/backfill',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'get_order_backfill_status' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+			)
+		);
+
+		register_rest_route(
+			$namespace,
+			'/orders/backfill',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'start_order_backfill' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+			)
+		);
 	}
 
 	public static function can_manage() {
@@ -531,6 +551,40 @@ class LS_Admin_REST {
 				'data'    => $result['data'] ?? array(),
 			)
 		);
+	}
+
+	public static function get_order_backfill_status( WP_REST_Request $request ) {
+		if ( ! class_exists( 'LS_Order_Push' ) ) {
+			return new WP_Error(
+				'unavailable',
+				__( 'Order sync is not available.', 'licensesender' ),
+				array( 'status' => 503 )
+			);
+		}
+
+		return rest_ensure_response( LS_Order_Push::get_backfill_status() );
+	}
+
+	public static function start_order_backfill( WP_REST_Request $request ) {
+		if ( ! class_exists( 'LS_Order_Push' ) ) {
+			return new WP_Error(
+				'unavailable',
+				__( 'Order sync is not available.', 'licensesender' ),
+				array( 'status' => 503 )
+			);
+		}
+
+		$result = LS_Order_Push::start_backfill();
+
+		if ( empty( $result['success'] ) ) {
+			return new WP_Error(
+				'backfill_failed',
+				(string) ( $result['message'] ?? __( 'Could not start order backfill.', 'licensesender' ) ),
+				array( 'status' => 400 )
+			);
+		}
+
+		return rest_ensure_response( $result );
 	}
 
 	public static function list_licenses( WP_REST_Request $request ) {

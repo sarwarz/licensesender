@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Check, Copy, Eye, EyeOff, KeyRound, RefreshCw, Webhook } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Check, Copy, Eye, EyeOff, History, KeyRound, RefreshCw, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiRequest } from '@/api/client';
 import { SettingsSection } from '@/components/settings/SettingsSection';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,11 +10,27 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
+export type OrderBackfillStatus = {
+  running?: boolean;
+  finished?: boolean;
+  total?: number;
+  processed?: number;
+  succeeded?: number;
+  failed?: number;
+  skipped?: number;
+  pending?: number;
+  last_error?: string;
+  started_at?: string;
+  updated_at?: string;
+};
+
 type AdvancedSettingsFieldsProps = {
   settings: Record<string, string>;
   regeneratingSecret?: boolean;
+  orderBackfill?: OrderBackfillStatus | null;
   onChange: (key: string, value: string) => void;
   onRegenerateSecret: () => void;
+  onOrderBackfillChange?: (status: OrderBackfillStatus) => void;
 };
 
 async function copyText(value: string, label: string) {
@@ -90,8 +107,10 @@ function CopyableField({
 export function AdvancedSettingsFields({
   settings,
   regeneratingSecret = false,
+  orderBackfill = null,
   onChange,
   onRegenerateSecret,
+  onOrderBackfillChange,
 }: AdvancedSettingsFieldsProps) {
   const ssoEnabled = settings.lship_sso_enabled === 'yes';
   const webhookUrl = settings.lship_webhook_url || '';
@@ -100,9 +119,152 @@ export function AdvancedSettingsFields({
   const ssoToken = settings.lship_sso_token || '';
   const ssoEmail = settings.lship_sso_user_email || '';
   const ssoReady = ssoEnabled && Boolean(ssoToken.trim() && ssoEmail.trim());
+  const [backfill, setBackfill] = useState<OrderBackfillStatus>(orderBackfill || {});
+  const [startingBackfill, setStartingBackfill] = useState(false);
+
+  useEffect(() => {
+    if (orderBackfill) {
+      setBackfill(orderBackfill);
+    }
+  }, [orderBackfill]);
+
+  const refreshBackfill = useCallback(async () => {
+    try {
+      const status = await apiRequest<OrderBackfillStatus>('orders/backfill');
+      setBackfill(status);
+      onOrderBackfillChange?.(status);
+      return status;
+    } catch {
+      return null;
+    }
+  }, [onOrderBackfillChange]);
+
+  useEffect(() => {
+    if (!backfill.running) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      void refreshBackfill();
+    }, 4000);
+
+    return () => window.clearInterval(timer);
+  }, [backfill.running, refreshBackfill]);
+
+  const startBackfill = async () => {
+    if (
+      !window.confirm(
+        'Sync past completed orders to LicenseSender? Existing license keys will NOT be re-delivered — only order records are uploaded.',
+      )
+    ) {
+      return;
+    }
+
+    setStartingBackfill(true);
+    try {
+      const result = await apiRequest<{ message?: string; status?: OrderBackfillStatus }>(
+        'orders/backfill',
+        { method: 'POST' },
+      );
+      if (result.status) {
+        setBackfill(result.status);
+        onOrderBackfillChange?.(result.status);
+      } else {
+        await refreshBackfill();
+      }
+      toast.success(result.message || 'Backfill started.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not start order backfill.');
+    } finally {
+      setStartingBackfill(false);
+    }
+  };
+
+  const pending = Number(backfill.pending ?? backfill.total ?? 0);
+  const processed = Number(backfill.processed ?? 0);
+  const succeeded = Number(backfill.succeeded ?? 0);
+  const failed = Number(backfill.failed ?? 0);
+  const running = Boolean(backfill.running);
+  const finished = Boolean(backfill.finished);
+  const progressTotal = Math.max(Number(backfill.total ?? 0), processed, 1);
+  const progressPct = Math.min(100, Math.round((processed / progressTotal) * 100));
 
   return (
     <div className="space-y-8">
+      <SettingsSection
+        title="Sync past orders"
+        description="Upload completed LicenseSender orders to your LicenseSender dashboard. Historical orders are recorded only — keys already delivered on this site are never sent again."
+        singleColumn
+      >
+        <div className="rounded-xl border bg-card p-5 shadow-sm">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+                <History className="h-4 w-4 text-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Order backfill</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Use this once after updating the plugin so old completed orders appear in LicenseSender.
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant="secondary"
+              className={cn(
+                running
+                  ? 'bg-sky-100 text-sky-800 hover:bg-sky-100'
+                  : finished && pending < 1
+                    ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100'
+                    : pending > 0
+                      ? 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-100',
+              )}
+            >
+              {running ? 'Running…' : finished && pending < 1 ? 'Up to date' : pending > 0 ? `${pending} pending` : 'Ready'}
+            </Badge>
+          </div>
+
+          {(running || finished || processed > 0) && (
+            <div className="mb-4 space-y-2">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-foreground/80 transition-all duration-500"
+                  style={{ width: `${running ? Math.max(progressPct, 4) : progressPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Synced {succeeded}
+                {failed > 0 ? ` · ${failed} failed` : ''}
+                {processed > 0 ? ` · ${processed} processed` : ''}
+                {pending > 0 ? ` · ${pending} remaining` : ''}
+              </p>
+              {backfill.last_error ? (
+                <p className="text-xs text-destructive">{backfill.last_error}</p>
+              ) : null}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={startingBackfill || running}
+              onClick={() => void startBackfill()}
+            >
+              <History className={cn('mr-2 h-3.5 w-3.5', (startingBackfill || running) && 'animate-pulse')} />
+              {startingBackfill ? 'Starting…' : running ? 'Backfill running…' : 'Sync past orders'}
+            </Button>
+            {(running || finished) && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => void refreshBackfill()}>
+                <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                Refresh status
+              </Button>
+            )}
+          </div>
+        </div>
+      </SettingsSection>
+
       <SettingsSection
         title="Incoming webhook"
         description="Share these credentials with LicenseSender (Shops → WordPress plugin webhook). When a license is replaced in LicenseSender, WordPress updates the local key cache automatically."
