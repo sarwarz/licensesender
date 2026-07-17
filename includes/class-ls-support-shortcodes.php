@@ -35,7 +35,7 @@ class LS_Support_Shortcodes {
 
 	public static function render_open( $atts = array() ) {
 		unset( $atts );
-		self::enqueue_assets();
+		self::enqueue_assets( true );
 		ob_start();
 
 		if ( ! LS_Support::is_enabled() ) {
@@ -75,7 +75,7 @@ class LS_Support_Shortcodes {
 					<form class="ls-support-form" id="ls-support-open-form" enctype="multipart/form-data">
 						<section class="ls-support-form-section">
 							<div class="ls-support-section-head">
-								<h3><?php esc_html_e( 'Request details', 'licensesender' ); ?></h3>
+								<h3><?php esc_html_e( 'Create new ticket', 'licensesender' ); ?></h3>
 								<p><?php esc_html_e( 'A clear subject and category help us route your ticket faster.', 'licensesender' ); ?></p>
 							</div>
 
@@ -88,23 +88,21 @@ class LS_Support_Shortcodes {
 								<div class="ls-support-field">
 									<label for="ls-support-category"><?php esc_html_e( 'Category', 'licensesender' ); ?></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-category" name="category" class="ls-support-select">
+										<select id="ls-support-category" name="category" class="ls-support-select ls-support-select2">
 											<?php foreach ( LS_Support::get_categories() as $value => $label ) : ?>
 												<option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
 											<?php endforeach; ?>
 										</select>
-										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 								<div class="ls-support-field">
 									<label for="ls-support-priority"><?php esc_html_e( 'Priority', 'licensesender' ); ?></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-priority" name="priority" class="ls-support-select">
+										<select id="ls-support-priority" name="priority" class="ls-support-select ls-support-select2">
 											<?php foreach ( LS_Support::get_priorities() as $value => $label ) : ?>
 												<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $value, 'normal' ); ?>><?php echo esc_html( $label ); ?></option>
 											<?php endforeach; ?>
 										</select>
-										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 							</div>
@@ -120,22 +118,20 @@ class LS_Support_Shortcodes {
 								<div class="ls-support-field">
 									<label for="ls-support-order"><?php esc_html_e( 'Related order', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-order" name="order_id" class="ls-support-select">
+										<select id="ls-support-order" name="order_id" class="ls-support-select ls-support-select2" data-placeholder="<?php esc_attr_e( 'Select an order', 'licensesender' ); ?>">
 											<option value=""><?php esc_html_e( 'Select an order', 'licensesender' ); ?></option>
 											<?php foreach ( $orders as $order ) : ?>
 												<option value="<?php echo esc_attr( (string) $order['id'] ); ?>"><?php echo esc_html( $order['label'] ); ?></option>
 											<?php endforeach; ?>
 										</select>
-										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 								<div class="ls-support-field">
 									<label for="ls-support-license-key"><?php esc_html_e( 'License key', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-license-key" name="license_key" class="ls-support-select" disabled>
+										<select id="ls-support-license-key" name="license_key" class="ls-support-select ls-support-select2" data-placeholder="<?php esc_attr_e( 'Select order first', 'licensesender' ); ?>" disabled>
 											<option value=""><?php esc_html_e( 'Select order first', 'licensesender' ); ?></option>
 										</select>
-										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 							</div>
@@ -147,9 +143,11 @@ class LS_Support_Shortcodes {
 								<p><?php esc_html_e( 'Include error messages, steps to reproduce, or anything else we should know.', 'licensesender' ); ?></p>
 							</div>
 
-							<div class="ls-support-field">
+							<div class="ls-support-field ls-support-open-editor-field">
 								<label for="ls-support-message"><?php esc_html_e( 'Description', 'licensesender' ); ?> <span class="required">*</span></label>
-								<textarea id="ls-support-message" name="message" rows="7" required maxlength="10000" placeholder="<?php esc_attr_e( 'Describe the problem in detail…', 'licensesender' ); ?>"></textarea>
+								<div class="ls-support-editor-wrap">
+									<textarea id="ls-support-message" name="message" rows="8" maxlength="10000" placeholder="<?php esc_attr_e( 'Describe the problem in detail…', 'licensesender' ); ?>"></textarea>
+								</div>
 							</div>
 
 							<div class="ls-support-field ls-support-attach-field">
@@ -177,7 +175,14 @@ class LS_Support_Shortcodes {
 	}
 
 	public static function render_manage( $atts = array() ) {
-		unset( $atts );
+		$atts = shortcode_atts(
+			array(
+				'context' => '',
+			),
+			$atts,
+			'ls_support_manage'
+		);
+		$is_my_account = $atts['context'] === 'my_account';
 		ob_start();
 
 		if ( ! LS_Support::is_enabled() ) {
@@ -202,8 +207,13 @@ class LS_Support_Shortcodes {
 			return ob_get_clean();
 		}
 
+		$wrap_class = 'ls-support-wrap alignwide ls-support-manage-wrap';
+		if ( $is_my_account ) {
+			$wrap_class .= ' ls-support-manage-wrap--my-account';
+		}
+
 		?>
-		<div class="ls-support-wrap alignwide ls-support-manage-wrap" id="ls-support-manage">
+		<div class="<?php echo esc_attr( $wrap_class ); ?>" id="ls-support-manage">
 			<div class="ls-support-manage-shell">
 				<?php if ( ! empty( $_GET['ls_support_created'] ) ) : ?>
 					<?php
@@ -217,6 +227,9 @@ class LS_Support_Shortcodes {
 
 				<header class="ls-support-manage-hero">
 					<div class="ls-support-manage-hero-copy">
+						<?php if ( $is_my_account ) : ?>
+							<h2 class="ls-support-title"><?php esc_html_e( 'Support Tickets', 'licensesender' ); ?></h2>
+						<?php endif; ?>
 						<p class="ls-support-lead"><?php esc_html_e( 'Track requests, read replies, and continue conversations with our team.', 'licensesender' ); ?></p>
 					</div>
 					<?php

@@ -174,11 +174,20 @@
       end: 'M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm3.3 12.1-1.2 1.2L12 13.4l-2.1 2-1.2-1.3 2.1-2-2-2.1 1.2-1.2 2.1 2.1 2-2.1 1.2 1.2-2 2.1z',
     };
 
-    var launcher = el('button', 'ls-chat__launcher');
+    var launcherStyle = cfg.launcherStyle === 'label' ? 'label' : 'icon';
+    var launcher = el(
+      'button',
+      'ls-chat__launcher' + (launcherStyle === 'label' ? ' ls-chat__launcher--label' : ' ls-chat__launcher--icon')
+    );
     launcher.type = 'button';
     launcher.setAttribute('aria-label', cfg.i18n.title);
     launcher.setAttribute('aria-expanded', 'false');
     launcher.appendChild(svg(I.chat));
+    if (launcherStyle === 'label') {
+      launcher.appendChild(
+        el('span', 'ls-chat__launcher-text', cfg.i18n.launcherLabel || cfg.i18n.title || 'Chat with us')
+      );
+    }
 
     var panel = el('div', 'ls-chat__panel');
     panel.hidden = true;

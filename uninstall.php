@@ -44,6 +44,7 @@ $options = array(
 	'lship_chat_require_email',
 	'lship_chat_welcome',
 	'lship_chat_color',
+	'lship_chat_launcher_style',
 	'lship_sso_enabled',
 	'lship_sso_token',
 	'lship_sso_user_email',

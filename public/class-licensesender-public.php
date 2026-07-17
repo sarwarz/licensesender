@@ -162,17 +162,34 @@ class Licensesender_Public {
 
 
 	public function register_support_assets() {
+		$plugin_root_url = plugin_dir_url( dirname( __FILE__ ) );
+
+		wp_register_style(
+			'ls-select2',
+			$plugin_root_url . 'admin/css/select2.min.css',
+			array(),
+			$this->version
+		);
+
+		wp_register_script(
+			'ls-select2',
+			$plugin_root_url . 'admin/js/select2.min.js',
+			array( 'jquery' ),
+			$this->version,
+			true
+		);
+
 		wp_register_style(
 			'ls-support',
 			plugin_dir_url( __FILE__ ) . 'css/ls-support.css',
-			array(),
+			array( 'ls-select2' ),
 			$this->version
 		);
 
 		wp_register_script(
 			'ls-support',
 			plugin_dir_url( __FILE__ ) . 'js/ls-support.js',
-			array( 'jquery' ),
+			array( 'jquery', 'ls-select2' ),
 			$this->version,
 			true
 		);
@@ -229,6 +246,7 @@ class Licensesender_Public {
 					'untitled'            => __( 'Untitled ticket', 'licensesender' ),
 					'replyLabel'          => __( 'Your reply', 'licensesender' ),
 					'replyRequired'       => __( 'Reply message is required.', 'licensesender' ),
+					'descriptionRequired' => __( 'Description is required.', 'licensesender' ),
 					'attachFile'          => __( 'Attach file', 'licensesender' ),
 					'noFilesSelected'     => __( 'No files selected', 'licensesender' ),
 					'attachments'         => __( 'Attachments (optional)', 'licensesender' ),

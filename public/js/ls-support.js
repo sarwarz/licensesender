@@ -103,6 +103,40 @@
     return $.post(cfg.ajaxUrl, $.extend({ action: action, nonce: cfg.nonce }, data || {}));
   }
 
+  function canSelect2() {
+    return typeof $.fn.select2 === 'function';
+  }
+
+  function initSupportSelect2($el) {
+    if (!$el.length || !canSelect2()) {
+      return;
+    }
+
+    if ($el.hasClass('select2-hidden-accessible')) {
+      $el.select2('destroy');
+    }
+
+    const $parent = $el.closest('.ls-support-select-wrap');
+    $el.select2({
+      width: '100%',
+      dropdownParent: $parent.length ? $parent : $(document.body),
+      placeholder: $el.data('placeholder') || '',
+      // Clear "x" only on optional pickers that have an empty placeholder option.
+      allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
+      minimumResultsForSearch: $el.is('#ls-support-order') ? 0 : 8,
+    });
+  }
+
+  function setSelectHtml($el, html, disabled) {
+    if ($el.hasClass('select2-hidden-accessible')) {
+      $el.select2('destroy');
+    }
+    $el.html(html).prop('disabled', !!disabled);
+    if ($el.hasClass('ls-support-select2')) {
+      initSupportSelect2($el);
+    }
+  }
+
   function initOpenForm() {
     const $form = $('#ls-support-open-form');
     if (!$form.length) {
@@ -113,6 +147,11 @@
     const $order = $('#ls-support-order');
     const $key = $('#ls-support-license-key');
     const defaultAttachLabel = cfg.i18n.noFilesSelected || 'No files selected';
+
+    $form.find('select.ls-support-select2').each(function () {
+      initSupportSelect2($(this));
+    });
+    initWpEditor(OPEN_EDITOR_ID, 240);
 
     $form.on('click', '.ls-support-attach-link', function () {
       $form.find('.ls-support-file-input').trigger('click');
@@ -127,23 +166,23 @@
 
     $order.on('change', function () {
       const orderId = $(this).val();
-      $key.prop('disabled', true).html('<option value="">' + cfg.i18n.loadingKeys + '</option>');
+      setSelectHtml($key, '<option value="">' + cfg.i18n.loadingKeys + '</option>', true);
 
       if (!orderId) {
-        $key.html('<option value="">' + cfg.i18n.selectOrderFirst + '</option>');
+        setSelectHtml($key, '<option value="">' + cfg.i18n.selectOrderFirst + '</option>', true);
         return;
       }
 
       postJson('ls_support_order_keys', { order_id: orderId })
         .done(function (res) {
           if (!res.success) {
-            $key.html('<option value="">' + cfg.i18n.noKeys + '</option>').prop('disabled', true);
+            setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
             return;
           }
 
           const keys = res.data.keys || [];
           if (!keys.length) {
-            $key.html('<option value="">' + cfg.i18n.noKeys + '</option>').prop('disabled', true);
+            setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
             return;
           }
 
@@ -152,17 +191,25 @@
             const label = item.sku ? item.key + ' (' + item.sku + ')' : item.key;
             html += '<option value="' + escapeHtml(item.key) + '">' + escapeHtml(label) + '</option>';
           });
-          $key.html(html).prop('disabled', false);
+          setSelectHtml($key, html, false);
         })
         .fail(function () {
-          $key.html('<option value="">' + cfg.i18n.noKeys + '</option>').prop('disabled', true);
+          setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
         });
     });
 
     $form.on('submit', function (event) {
       event.preventDefault();
+      syncWpEditor(OPEN_EDITOR_ID);
+
       const $btn = $form.find('[type="submit"]');
       const formData = new FormData(this);
+      const message = String(formData.get('message') || '');
+
+      if (isReplyMessageEmpty(message)) {
+        setMessage($message, 'error', cfg.i18n.descriptionRequired || cfg.i18n.replyRequired || cfg.i18n.error);
+        return;
+      }
 
       $btn.prop('disabled', true);
       setMessage($message, '', cfg.i18n.submitting);
@@ -211,42 +258,55 @@
     return $('<div>').html(html).text().replace(/\s+/g, ' ').trim();
   }
 
+  const OPEN_EDITOR_ID = 'ls-support-message';
   const REPLY_EDITOR_ID = 'ls-support-reply-message';
 
-  function destroyReplyEditor() {
+  function destroyWpEditor(editorId) {
     if (typeof wp === 'undefined' || !wp.editor || !wp.editor.remove) {
       return;
     }
 
-    if ($('#' + REPLY_EDITOR_ID).length) {
-      wp.editor.remove(REPLY_EDITOR_ID);
+    if ($('#' + editorId).length) {
+      wp.editor.remove(editorId);
     }
   }
 
-  function initReplyEditor() {
-    const $textarea = $('#' + REPLY_EDITOR_ID);
+  function initWpEditor(editorId, height) {
+    const $textarea = $('#' + editorId);
     if (!$textarea.length || typeof wp === 'undefined' || !wp.editor || !wp.editor.initialize) {
       return;
     }
 
-    destroyReplyEditor();
+    destroyWpEditor(editorId);
 
-    wp.editor.initialize(REPLY_EDITOR_ID, {
+    wp.editor.initialize(editorId, {
       tinymce: {
         wpautop: true,
         toolbar1: 'bold,italic,underline,bullist,numlist,link,unlink',
         toolbar2: '',
-        height: 180,
+        height: height || 220,
       },
       quicktags: false,
       mediaButtons: false,
     });
   }
 
-  function syncReplyEditor() {
+  function syncWpEditor(editorId) {
     if (typeof wp !== 'undefined' && wp.editor && wp.editor.save) {
-      wp.editor.save(REPLY_EDITOR_ID);
+      wp.editor.save(editorId);
     }
+  }
+
+  function destroyReplyEditor() {
+    destroyWpEditor(REPLY_EDITOR_ID);
+  }
+
+  function initReplyEditor() {
+    initWpEditor(REPLY_EDITOR_ID, 180);
+  }
+
+  function syncReplyEditor() {
+    syncWpEditor(REPLY_EDITOR_ID);
   }
 
   function isReplyMessageEmpty(value) {

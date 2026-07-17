@@ -46,6 +46,23 @@ defined( 'ABSPATH' ) || exit;
 				</td>
 			</tr>
 			<tr>
+				<th scope="row"><?php esc_html_e( 'Launcher style', 'licensesender' ); ?></th>
+				<td>
+					<?php $launcher_style = get_option( 'lship_chat_launcher_style', 'icon' ); ?>
+					<fieldset>
+						<label style="display:block;margin-bottom:8px;">
+							<input type="radio" name="lship_chat_launcher_style" value="icon" <?php checked( $launcher_style, 'icon' ); ?>>
+							<?php esc_html_e( 'Icon only — circular chat button', 'licensesender' ); ?>
+						</label>
+						<label style="display:block;">
+							<input type="radio" name="lship_chat_launcher_style" value="label" <?php checked( $launcher_style, 'label' ); ?>>
+							<?php esc_html_e( 'Chat with us — icon with message label', 'licensesender' ); ?>
+						</label>
+					</fieldset>
+					<p class="description"><?php esc_html_e( 'Choose how the floating chat button appears on your storefront.', 'licensesender' ); ?></p>
+				</td>
+			</tr>
+			<tr>
 				<th scope="row"><label for="lship_chat_welcome"><?php esc_html_e( 'Welcome message', 'licensesender' ); ?></label></th>
 				<td>
 					<textarea name="lship_chat_welcome" id="lship_chat_welcome" rows="3" class="large-text"><?php echo esc_textarea( (string) get_option( 'lship_chat_welcome', '' ) ); ?></textarea>

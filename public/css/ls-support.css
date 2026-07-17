@@ -101,10 +101,10 @@
 }
 
 .ls-support-form-section {
-  padding: 20px 0;
+  padding: 22px 0;
   border-bottom: 1px solid var(--ls-support-line);
   display: grid;
-  gap: 16px;
+  gap: 14px;
 }
 
 .ls-support-form-section:first-child {
@@ -116,9 +116,14 @@
   padding-bottom: 8px;
 }
 
+.ls-support-section-head {
+  margin-bottom: 2px;
+}
+
 .ls-support-section-head h3 {
-  margin: 0 0 4px;
-  font-size: 1rem;
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
   color: var(--ls-support-ink);
   letter-spacing: -0.01em;
 }
@@ -127,7 +132,7 @@
   margin: 0;
   color: var(--ls-support-muted);
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 .ls-support-title {
@@ -189,14 +194,22 @@
   box-sizing: border-box;
   border: 1px solid #d7dee8 !important;
   border-radius: 11px !important;
-  padding: 11px 13px !important;
-  min-height: 42px;
+  padding: 11px 14px !important;
+  min-height: 44px;
   font: inherit;
   font-size: 14px !important;
   background: #fff !important;
   color: #0f172a !important;
   box-shadow: none !important;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ls-support-field input[type="text"]::placeholder,
+.ls-support-field textarea::placeholder,
+.ls-support-wrap .ls-support-field input[type="text"]::placeholder,
+.ls-support-wrap .ls-support-field textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
 }
 
 .ls-support-select-wrap {
@@ -224,10 +237,10 @@
   display: block;
   border: 1px solid #d7dee8 !important;
   border-radius: 11px !important;
-  padding: 0 44px 0 13px !important;
-  height: 42px !important;
-  min-height: 42px !important;
-  line-height: 42px !important;
+  padding: 0 44px 0 14px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  line-height: 44px !important;
   font: inherit;
   font-size: 14px !important;
   color: #0f172a !important;
@@ -237,8 +250,17 @@
   appearance: none !important;
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
+  /* Keep native option popup light even when OS/theme is dark. */
+  color-scheme: light;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ls-support-field select option,
+.ls-support-wrap .ls-support-field select option,
+.ls-support-wrap select.ls-support-select option {
+  background-color: #fff;
+  color: #0f172a;
 }
 
 .ls-support-field select::-ms-expand,
@@ -283,6 +305,152 @@
   opacity: 0.45;
 }
 
+.ls-support-select-wrap:has(.select2-container) .ls-support-select-caret,
+.ls-support-select-wrap .select2-container ~ .ls-support-select-caret,
+.ls-support-select-wrap select.ls-support-select2 ~ .ls-support-select-caret {
+  display: none !important;
+}
+
+.ls-support-select-wrap .select2-container {
+  width: 100% !important;
+  display: block !important;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-selection--single {
+  height: 44px !important;
+  min-height: 44px !important;
+  border: 1px solid #d7dee8 !important;
+  border-radius: 11px !important;
+  background-color: #fff !important;
+  /* Chevron drawn as background — immune to theme arrow positioning. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 16px 16px !important;
+  color-scheme: light;
+  padding: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+  position: relative !important;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-selection--single::before,
+.ls-support-select-wrap .select2-container--default .select2-selection--single::after,
+.ls-support-select-wrap .select2-container--default .select2-selection--single .select2-selection__arrow::before,
+.ls-support-select-wrap .select2-container--default .select2-selection--single .select2-selection__arrow::after {
+  content: none !important;
+  display: none !important;
+  background: none !important;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-selection--single .select2-selection__rendered {
+  display: block !important;
+  line-height: 42px !important;
+  padding: 0 40px 0 14px !important;
+  margin: 0 !important;
+  color: #0f172a !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  text-align: left !important;
+  box-sizing: border-box !important;
+  background: none !important;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-selection--single .select2-selection__placeholder {
+  color: #94a3b8 !important;
+  line-height: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-selection--single .select2-selection__clear {
+  margin-right: 24px !important;
+  font-size: 16px !important;
+  color: #94a3b8 !important;
+  float: none !important;
+  position: absolute !important;
+  right: 32px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Kill Select2's arrow element completely — chevron comes from the background image above. */
+.ls-support-wrap .ls-support-select-wrap .select2-container .select2-selection__arrow,
+.ls-support-select-wrap .select2-container .select2-selection__arrow,
+.ls-support-select-wrap .select2-selection__arrow,
+.ls-support-select-wrap .select2-selection__arrow b {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  border: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: none !important;
+}
+
+.ls-support-select-wrap .select2-container--default.select2-container--focus .select2-selection--single,
+.ls-support-select-wrap .select2-container--default.select2-container--open .select2-selection--single {
+  border-color: var(--ls-support-brand) !important;
+  box-shadow: 0 0 0 3px var(--ls-support-brand-ring) !important;
+}
+
+.ls-support-select-wrap .select2-container--default.select2-container--open .select2-selection--single {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234f46e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m18 15-6-6-6 6'/%3E%3C/svg%3E") !important;
+}
+
+.ls-support-select-wrap .select2-container--default.select2-container--disabled .select2-selection--single {
+  background-color: #f8fafc !important;
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
+
+.ls-support-select-wrap .select2-container--default.select2-container--disabled .select2-selection--single .select2-selection__rendered,
+.ls-support-select-wrap .select2-container--default.select2-container--disabled .select2-selection--single .select2-selection__placeholder {
+  color: #94a3b8 !important;
+}
+
+.ls-support-select-wrap .select2-dropdown {
+  border: 1px solid #d7dee8 !important;
+  border-radius: 11px !important;
+  overflow: hidden;
+  color-scheme: light;
+  z-index: 100050;
+  margin-top: 4px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+}
+
+.ls-support-select-wrap .select2-results__option {
+  padding: 10px 14px !important;
+  color: #0f172a;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.ls-support-select-wrap .select2-container--default .select2-results__option--highlighted[aria-selected],
+.ls-support-select-wrap .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+  background-color: var(--ls-support-brand) !important;
+  color: #fff !important;
+}
+
+.ls-support-select-wrap .select2-search--dropdown {
+  padding: 10px 12px !important;
+}
+
+.ls-support-select-wrap .select2-search--dropdown .select2-search__field {
+  border: 1px solid #d7dee8 !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.ls-support-select-wrap .select2-search--dropdown .select2-search__field:focus {
+  border-color: var(--ls-support-brand) !important;
+  box-shadow: 0 0 0 3px var(--ls-support-brand-ring) !important;
+}
+
 .ls-support-help {
   margin: 8px 0 0;
   font-size: 13px;
@@ -298,6 +466,7 @@
   border: 1px dashed #cbd5e1;
   border-radius: 12px;
   background: #f8fafc;
+  position: relative;
 }
 
 .ls-support-open-attach .ls-support-file-input {
@@ -467,6 +636,24 @@
   --ls-support-line: #e2e8f0;
   --ls-support-surface: #ffffff;
   --ls-support-soft: #f8fafc;
+}
+
+.ls-support-my-account-wrap {
+  margin: 0;
+  padding: 0;
+}
+
+.ls-support-my-account-wrap .ls-support-manage-wrap {
+  max-width: none;
+  margin-block-end: 0;
+}
+
+.ls-support-manage-wrap--my-account .ls-support-manage-hero .ls-support-title {
+  margin: 0 0 6px;
+  font-size: clamp(1.35rem, 2vw, 1.65rem);
+  letter-spacing: -0.02em;
+  color: var(--ls-support-ink);
+  font-weight: 700;
 }
 
 .ls-support-manage-shell {
@@ -655,8 +842,14 @@
   background-position: right 12px center !important;
   appearance: none !important;
   -webkit-appearance: none !important;
+  color-scheme: light;
   cursor: pointer;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ls-support-filter-select option {
+  background-color: #fff;
+  color: #0f172a;
 }
 
 .ls-support-filter-select:focus {
@@ -1558,6 +1751,10 @@
   margin-bottom: 0;
 }
 
+.ls-support-open-editor-field {
+  margin-bottom: 0;
+}
+
 .ls-support-editor-wrap {
   margin-top: 0;
 }
@@ -1585,13 +1782,18 @@
 .ls-support-editor-wrap .mce-toolbar-grp {
   border-bottom: 1px solid var(--ls-support-line);
   background: var(--ls-support-soft);
+  padding: 4px 6px;
+}
+
+.ls-support-editor-wrap .mce-toolbar .mce-btn button {
+  padding: 4px 6px;
 }
 
 .ls-support-editor-wrap .wp-editor-area {
-  min-height: 132px;
+  min-height: 160px;
   border: 0;
   border-radius: 0;
-  padding: 14px;
+  padding: 14px !important;
 }
 
 .ls-support-editor-wrap .quicktags-toolbar {

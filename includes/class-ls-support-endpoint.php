@@ -78,35 +78,9 @@ class LS_Support_Endpoint {
 		}
 
 		echo '<div class="ls-support-my-account-wrap">';
-		echo '<h3 class="ls-title">' . esc_html__( self::MENU_TITLE, 'licensesender' ) . '</h3>';
-		echo '<p class="ls-subtitle">' . esc_html__( 'Open and track your support requests.', 'licensesender' ) . '</p>';
-
-		$open_id    = absint( get_option( 'lship_support_open_page_id', 0 ) );
-		$manage_id  = absint( get_option( 'lship_support_manage_page_id', 0 ) );
-		$open_url   = $open_id ? get_permalink( $open_id ) : '';
-		$manage_url = $manage_id ? get_permalink( $manage_id ) : '';
-
-		if ( $open_url || $manage_url ) {
-			echo '<p class="ls-support-my-account-actions">';
-			if ( $open_url ) {
-				printf(
-					'<a class="button" href="%s">%s</a> ',
-					esc_url( $open_url ),
-					esc_html__( 'Open a ticket', 'licensesender' )
-				);
-			}
-			if ( $manage_url ) {
-				printf(
-					'<a class="button" href="%s">%s</a>',
-					esc_url( $manage_url ),
-					esc_html__( 'View all tickets', 'licensesender' )
-				);
-			}
-			echo '</p>';
-		}
 
 		if ( shortcode_exists( 'ls_support_manage' ) ) {
-			echo do_shortcode( '[ls_support_manage]' );
+			echo do_shortcode( '[ls_support_manage context="my_account"]' );
 		} else {
 			echo '<p>' . esc_html__( 'Support portal is not available on this site.', 'licensesender' ) . '</p>';
 		}

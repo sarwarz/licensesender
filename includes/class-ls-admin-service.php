@@ -717,7 +717,7 @@ class LS_Admin_Service {
 		}
 
 		$manage_id = self::ensure_shortcode_page(
-			'support-tickets',
+			'my-support-tickets',
 			__( 'My Support Tickets', 'licensesender' ),
 			'[ls_support_manage]',
 			LS_Support::get_manage_page_id()
@@ -972,10 +972,11 @@ class LS_Admin_Service {
 				);
 			case 'chat':
 				return array(
-					'lship_chat_enabled'       => get_option( 'lship_chat_enabled', 'no' ),
-					'lship_chat_require_email' => get_option( 'lship_chat_require_email', 'no' ),
-					'lship_chat_welcome'       => get_option( 'lship_chat_welcome', '' ),
-					'lship_chat_color'         => get_option( 'lship_chat_color', get_option( 'ls_brand', '#0f766e' ) ),
+					'lship_chat_enabled'        => get_option( 'lship_chat_enabled', 'no' ),
+					'lship_chat_require_email'  => get_option( 'lship_chat_require_email', 'no' ),
+					'lship_chat_welcome'        => get_option( 'lship_chat_welcome', '' ),
+					'lship_chat_color'          => get_option( 'lship_chat_color', get_option( 'ls_brand', '#0f766e' ) ),
+					'lship_chat_launcher_style' => get_option( 'lship_chat_launcher_style', 'icon' ),
 				);
 			case 'general':
 			default:
@@ -1129,6 +1130,8 @@ class LS_Admin_Service {
 				update_option( 'lship_chat_welcome', sanitize_textarea_field( (string) ( $data['lship_chat_welcome'] ?? '' ) ) );
 				$chat_color = sanitize_hex_color( (string) ( $data['lship_chat_color'] ?? '' ) );
 				update_option( 'lship_chat_color', $chat_color ? $chat_color : '' );
+				$launcher_style = sanitize_key( (string) ( $data['lship_chat_launcher_style'] ?? 'icon' ) );
+				update_option( 'lship_chat_launcher_style', in_array( $launcher_style, array( 'icon', 'label' ), true ) ? $launcher_style : 'icon' );
 				break;
 			default:
 				return new WP_Error( 'invalid_tab', __( 'Invalid settings tab.', 'licensesender' ), array( 'status' => 400 ) );

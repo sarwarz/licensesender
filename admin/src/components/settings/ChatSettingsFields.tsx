@@ -13,12 +13,16 @@ export function ChatSettingsFields({ settings, onChange }: ChatSettingsFieldsPro
   const yesNo = (key: string) => settings[key] === 'yes';
   const enabled = yesNo('lship_chat_enabled');
   const requireEmail = yesNo('lship_chat_require_email');
+  const brandColor = settings.lship_chat_color || '#0f766e';
 
   return (
     <div className="space-y-6">
       <div className="rounded-xl border border-slate-200 bg-white p-5">
         <div className="mb-4 flex items-start gap-3">
-          <div className="rounded-lg bg-teal-50 p-2 text-teal-700">
+          <div
+            className="rounded-lg p-2 text-white"
+            style={{ backgroundColor: brandColor }}
+          >
             <MessageCircle className="h-5 w-5" />
           </div>
           <div>
@@ -80,6 +84,70 @@ export function ChatSettingsFields({ settings, onChange }: ChatSettingsFieldsPro
             <p className="text-xs text-muted-foreground">
               Used for header, launcher, and assistant bubbles. Empty falls back to Design → brand color.
             </p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <Label>Launcher style</Label>
+              <p className="text-xs text-muted-foreground">
+                Choose how the floating chat button appears on your storefront.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(
+                [
+                  {
+                    value: 'icon',
+                    title: 'Icon only',
+                    hint: 'Circular chat button',
+                  },
+                  {
+                    value: 'label',
+                    title: 'Chat with us',
+                    hint: 'Icon with message label',
+                  },
+                ] as const
+              ).map((option) => {
+                const selected = (settings.lship_chat_launcher_style || 'icon') === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onChange('lship_chat_launcher_style', option.value)}
+                    className={cn(
+                      'rounded-xl border p-4 text-left transition-colors',
+                      selected ? '' : 'border-slate-200 bg-white hover:border-slate-300',
+                    )}
+                    style={
+                      selected
+                        ? {
+                            borderColor: brandColor,
+                            backgroundColor: `color-mix(in srgb, ${brandColor} 10%, white)`,
+                            boxShadow: `0 0 0 1px ${brandColor}`,
+                          }
+                        : undefined
+                    }
+                  >
+                    <div className="mb-3 flex items-center gap-2">
+                      <span
+                        className={cn(
+                          'inline-flex items-center justify-center rounded-full text-white',
+                          option.value === 'icon' ? 'h-10 w-10' : 'h-9 gap-2 px-3',
+                        )}
+                        style={{ backgroundColor: brandColor }}
+                      >
+                        <MessageCircle className="h-4 w-4 shrink-0" />
+                        {option.value === 'label' ? (
+                          <span className="text-xs font-semibold whitespace-nowrap">Chat with us</span>
+                        ) : null}
+                      </span>
+                    </div>
+                    <div className="text-sm font-semibold text-foreground">{option.title}</div>
+                    <div className="text-xs text-muted-foreground">{option.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">

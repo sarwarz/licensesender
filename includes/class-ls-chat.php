@@ -89,6 +89,16 @@ class LS_Chat {
 		return '#0f766e';
 	}
 
+	/**
+	 * Floating launcher style: icon | label.
+	 *
+	 * @return string
+	 */
+	public static function launcher_style() {
+		$style = sanitize_key( (string) get_option( 'lship_chat_launcher_style', 'icon' ) );
+		return in_array( $style, array( 'icon', 'label' ), true ) ? $style : 'icon';
+	}
+
 	public static function enqueue_assets() {
 		if ( is_admin() || ! self::is_enabled() ) {
 			return;
@@ -124,6 +134,7 @@ class LS_Chat {
 				'welcome'       => self::welcome_message(),
 				'requireEmail'  => self::requires_email(),
 				'brandColor'    => self::brand_color(),
+				'launcherStyle' => self::launcher_style(),
 				'pollInterval'  => 4000,
 				'visitorName'   => $user && $user->exists() ? (string) $user->display_name : '',
 				'visitorEmail'  => $user && $user->exists() ? (string) $user->user_email : '',
@@ -155,6 +166,7 @@ class LS_Chat {
 					'agent'           => __( 'Support', 'licensesender' ),
 					'powered'         => __( 'Powered by LicenseSender', 'licensesender' ),
 					'defaultWelcome'  => __( 'Hi! How can we help you today?', 'licensesender' ),
+					'launcherLabel'   => __( 'Chat with us', 'licensesender' ),
 				),
 			)
 		);
