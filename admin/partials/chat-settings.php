@@ -38,6 +38,14 @@ defined( 'ABSPATH' ) || exit;
 				</td>
 			</tr>
 			<tr>
+				<th scope="row"><?php esc_html_e( 'Widget brand color', 'licensesender' ); ?></th>
+				<td>
+					<?php $chat_color = (string) get_option( 'lship_chat_color', get_option( 'ls_brand', '#0f766e' ) ); ?>
+					<input type="color" name="lship_chat_color" value="<?php echo esc_attr( $chat_color ? $chat_color : '#0f766e' ); ?>">
+					<p class="description"><?php esc_html_e( 'Used for the launcher, header, and assistant bubbles.', 'licensesender' ); ?></p>
+				</td>
+			</tr>
+			<tr>
 				<th scope="row"><label for="lship_chat_welcome"><?php esc_html_e( 'Welcome message', 'licensesender' ); ?></label></th>
 				<td>
 					<textarea name="lship_chat_welcome" id="lship_chat_welcome" rows="3" class="large-text"><?php echo esc_textarea( (string) get_option( 'lship_chat_welcome', '' ) ); ?></textarea>

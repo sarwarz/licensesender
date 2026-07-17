@@ -57,6 +57,32 @@ export function ChatSettingsFields({ settings, onChange }: ChatSettingsFieldsPro
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="lship_chat_color">Widget brand color</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="lship_chat_color"
+                type="color"
+                value={settings.lship_chat_color || '#0f766e'}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange('lship_chat_color', e.target.value)}
+                className="h-10 w-14 cursor-pointer rounded border border-input bg-transparent p-1"
+              />
+              <input
+                type="text"
+                value={settings.lship_chat_color || ''}
+                placeholder="#0f766e"
+                onChange={(e: ChangeEvent<HTMLInputElement>) => onChange('lship_chat_color', e.target.value)}
+                className={cn(
+                  'flex h-10 w-full max-w-[10rem] rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-sm',
+                  'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                )}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Used for header, launcher, and assistant bubbles. Empty falls back to Design → brand color.
+            </p>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="lship_chat_welcome">Welcome message</Label>
             <textarea
               id="lship_chat_welcome"

@@ -975,6 +975,7 @@ class LS_Admin_Service {
 					'lship_chat_enabled'       => get_option( 'lship_chat_enabled', 'no' ),
 					'lship_chat_require_email' => get_option( 'lship_chat_require_email', 'no' ),
 					'lship_chat_welcome'       => get_option( 'lship_chat_welcome', '' ),
+					'lship_chat_color'         => get_option( 'lship_chat_color', get_option( 'ls_brand', '#0f766e' ) ),
 				);
 			case 'general':
 			default:
@@ -1126,6 +1127,8 @@ class LS_Admin_Service {
 				update_option( 'lship_chat_enabled', ( $data['lship_chat_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_chat_require_email', ( $data['lship_chat_require_email'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_chat_welcome', sanitize_textarea_field( (string) ( $data['lship_chat_welcome'] ?? '' ) ) );
+				$chat_color = sanitize_hex_color( (string) ( $data['lship_chat_color'] ?? '' ) );
+				update_option( 'lship_chat_color', $chat_color ? $chat_color : '' );
 				break;
 			default:
 				return new WP_Error( 'invalid_tab', __( 'Invalid settings tab.', 'licensesender' ), array( 'status' => 400 ) );

@@ -65,6 +65,30 @@ class LS_Chat {
 		return __( 'Hi! How can we help you today?', 'licensesender' );
 	}
 
+	/**
+	 * Widget brand color (chat override → design brand → default teal).
+	 *
+	 * @return string
+	 */
+	public static function brand_color() {
+		$chat = sanitize_hex_color( (string) get_option( 'lship_chat_color', '' ) );
+		if ( $chat ) {
+			return $chat;
+		}
+
+		$brand = sanitize_hex_color( (string) get_option( 'ls_brand', '' ) );
+		if ( $brand ) {
+			return $brand;
+		}
+
+		$legacy = sanitize_hex_color( (string) get_option( 'lship_brand_color', '' ) );
+		if ( $legacy ) {
+			return $legacy;
+		}
+
+		return '#0f766e';
+	}
+
 	public static function enqueue_assets() {
 		if ( is_admin() || ! self::is_enabled() ) {
 			return;
@@ -72,8 +96,21 @@ class LS_Chat {
 
 		$base = plugin_dir_url( dirname( __FILE__ ) ) . 'public/';
 		$ver  = defined( 'LICENSESENDER_VERSION' ) ? LICENSESENDER_VERSION : '1.0.0';
+		$css  = plugin_dir_path( dirname( __FILE__ ) ) . 'public/css/ls-chat.css';
+		$js   = plugin_dir_path( dirname( __FILE__ ) ) . 'public/js/ls-chat.js';
+		if ( file_exists( $css ) ) {
+			$ver .= '.' . (string) filemtime( $css );
+		} elseif ( file_exists( $js ) ) {
+			$ver .= '.' . (string) filemtime( $js );
+		}
 
-		wp_enqueue_style( 'ls-chat', $base . 'css/ls-chat.css', array(), $ver );
+		wp_enqueue_style(
+			'ls-chat-font',
+			'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap',
+			array(),
+			null
+		);
+		wp_enqueue_style( 'ls-chat', $base . 'css/ls-chat.css', array( 'ls-chat-font' ), $ver );
 		wp_enqueue_script( 'ls-chat', $base . 'js/ls-chat.js', array(), $ver, true );
 
 		$user = wp_get_current_user();
@@ -86,22 +123,38 @@ class LS_Chat {
 				'nonce'         => wp_create_nonce( 'ls_chat' ),
 				'welcome'       => self::welcome_message(),
 				'requireEmail'  => self::requires_email(),
+				'brandColor'    => self::brand_color(),
 				'pollInterval'  => 4000,
 				'visitorName'   => $user && $user->exists() ? (string) $user->display_name : '',
 				'visitorEmail'  => $user && $user->exists() ? (string) $user->user_email : '',
 				'i18n'          => array(
-					'title'       => __( 'Chat with us', 'licensesender' ),
-					'placeholder' => __( 'Type a message…', 'licensesender' ),
-					'send'        => __( 'Send', 'licensesender' ),
-					'escalate'    => __( 'Talk to a human', 'licensesender' ),
-					'close'       => __( 'End chat', 'licensesender' ),
-					'emailLabel'  => __( 'Your email', 'licensesender' ),
-					'nameLabel'   => __( 'Your name', 'licensesender' ),
-					'start'       => __( 'Start chat', 'licensesender' ),
-					'error'       => __( 'Something went wrong. Please try again.', 'licensesender' ),
-					'escalated'   => __( 'A support ticket was created. Our team will follow up by email.', 'licensesender' ),
-					'closed'      => __( 'Chat ended. Thanks for reaching out!', 'licensesender' ),
-					'emailRequired' => __( 'Please enter your email to continue.', 'licensesender' ),
+					'title'           => __( 'Chat with us', 'licensesender' ),
+					'agentTitle'      => __( 'Chat with us', 'licensesender' ),
+					'agentRole'       => __( 'Online · usually replies in minutes', 'licensesender' ),
+					'placeholder'     => __( 'Type here and press enter…', 'licensesender' ),
+					'send'            => __( 'Send', 'licensesender' ),
+					'escalate'        => __( 'Talk to a human', 'licensesender' ),
+					'close'           => __( 'End this chat session', 'licensesender' ),
+					'minimize'        => __( 'Close', 'licensesender' ),
+					'menu'            => __( 'Menu', 'licensesender' ),
+					'emailLabel'      => __( 'Email', 'licensesender' ),
+					'nameLabel'       => __( 'Name', 'licensesender' ),
+					'namePlaceholder' => __( 'Your name', 'licensesender' ),
+					'emailPlaceholder'=> __( 'you@example.com', 'licensesender' ),
+					'start'           => __( 'Start chat', 'licensesender' ),
+					'error'           => __( 'Something went wrong. Please try again.', 'licensesender' ),
+					'escalated'       => __( 'A support ticket was created. Our team will follow up by email.', 'licensesender' ),
+					'closed'          => __( 'Chat ended. Thanks for reaching out!', 'licensesender' ),
+					'emailRequired'   => __( 'Please enter your email to continue.', 'licensesender' ),
+					'online'          => __( 'Online · usually replies in minutes', 'licensesender' ),
+					'support'         => __( 'Customer support', 'licensesender' ),
+					'gateHelp'        => __( 'Tell us who you are, then start chatting with our assistant.', 'licensesender' ),
+					'today'           => __( 'Today', 'licensesender' ),
+					'you'             => __( 'You', 'licensesender' ),
+					'assistant'       => __( 'Assistant', 'licensesender' ),
+					'agent'           => __( 'Support', 'licensesender' ),
+					'powered'         => __( 'Powered by LicenseSender', 'licensesender' ),
+					'defaultWelcome'  => __( 'Hi! How can we help you today?', 'licensesender' ),
 				),
 			)
 		);

@@ -51,15 +51,54 @@ class Licensesender_Product_Tab {
 				<label for="ls_mapped_product"><?php _e('Product Mapping', 'licensesender'); ?></label>
 				<select id="ls_mapped_product" name="ls_mapped_product" class="select2" style="width: 50%;">
 					<option value=""><?php _e('Select LicenseSender Product', 'licensesender'); ?></option>
-					<?php foreach ($products as $product): 
-						$value = esc_attr($product['sku']);
-						$label = esc_html($product['name'] . ' (' . $product['sku'] . ')');
-						$selected = selected($mapped_value, $value, false);
-						echo "<option value='{$value}' {$selected}>{$label}</option>";
-					endforeach; ?>
+					<?php
+					$mapped_in_list = false;
+					foreach ( $products as $product ) :
+						$value    = (string) ( $product['sku'] ?? '' );
+						if ( $value === '' ) {
+							continue;
+						}
+						$label    = esc_html( ( $product['name'] ?? $value ) . ' (' . $value . ')' );
+						$selected = selected( (string) $mapped_value, $value, false );
+						if ( (string) $mapped_value === $value ) {
+							$mapped_in_list = true;
+						}
+						echo "<option value='" . esc_attr( $value ) . "' {$selected}>{$label}</option>";
+					endforeach;
+
+					// Keep showing a stored mapping even when SaaS no longer returns that SKU
+					// (e.g. account reset, product deleted, API temporarily empty).
+					if ( $mapped_value !== '' && $mapped_value !== null && ! $mapped_in_list ) :
+						?>
+						<option value="<?php echo esc_attr( $mapped_value ); ?>" selected>
+							<?php
+							echo esc_html(
+								sprintf(
+									/* translators: %s: saved LicenseSender SKU */
+									__( 'Saved mapping: %s (not found in LicenseSender — re-map or recreate the product)', 'licensesender' ),
+									$mapped_value
+								)
+							);
+							?>
+						</option>
+					<?php endif; ?>
 				</select>
-				<span class="woocommerce-help-tip" data-tip="<?php echo esc_attr__('Associate this WooCommerce product with an external API product using either the product name or SKU.', 'licensesender'); ?>"></span>
+				<span class="woocommerce-help-tip" data-tip="<?php echo esc_attr__('Associate this WooCommerce product with an external API product using the LicenseSender SKU.', 'licensesender'); ?>"></span>
 			</p>
+
+			<?php if ( $mapped_value !== '' && $mapped_value !== null && ! $mapped_in_list && $api_response['success'] ) : ?>
+				<p class="ls-mapped-product-field" style="color:#94660c;<?php echo $is_enabled === 'yes' ? '' : ' display:none;'; ?>">
+					<?php
+					echo esc_html(
+						sprintf(
+							/* translators: %s: saved LicenseSender SKU */
+							__( 'This product still stores mapping “%s”, but that SKU was not returned by LicenseSender. Re-select a product after recreating it in LicenseSender.', 'licensesender' ),
+							$mapped_value
+						)
+					);
+					?>
+				</p>
+			<?php endif; ?>
 
 			<?php if (!$api_response['success']): ?>
 				<p class="ls-mapped-product-field" style="color: red;<?php echo $is_enabled === 'yes' ? '' : ' display:none;'; ?>">
@@ -104,12 +143,35 @@ class Licensesender_Product_Tab {
 	        	<label><?php _e('Mapped License Product', 'licensesender'); ?></label>
 		        <select name="ls_mapped_product[<?php echo esc_attr($loop); ?>]" class="wc-enhanced-select ls_mapped_variation_product" style="width:100%;" >
 		            <option value=""><?php _e('Select LicenseSender Product', 'licensesender'); ?></option>
-		            <?php foreach ($products as $product): 
-		                $value = esc_attr($product['sku']);
-		                $label = esc_html($product['name'] . ' (' . $product['sku'] . ')');
-		                $selected = selected($mapped_value, $value, false);
-		                echo "<option value='{$value}' {$selected}>{$label}</option>";
-		            endforeach; ?>
+		            <?php
+		            $mapped_in_list = false;
+		            foreach ( $products as $product ) :
+		                $value = (string) ( $product['sku'] ?? '' );
+		                if ( $value === '' ) {
+		                    continue;
+		                }
+		                $label = esc_html( ( $product['name'] ?? $value ) . ' (' . $value . ')' );
+		                $selected = selected( (string) $mapped_value, $value, false );
+		                if ( (string) $mapped_value === $value ) {
+		                    $mapped_in_list = true;
+		                }
+		                echo "<option value='" . esc_attr( $value ) . "' {$selected}>{$label}</option>";
+		            endforeach;
+
+		            if ( $mapped_value !== '' && $mapped_value !== null && ! $mapped_in_list ) :
+		                ?>
+		                <option value="<?php echo esc_attr( $mapped_value ); ?>" selected>
+		                    <?php
+		                    echo esc_html(
+		                        sprintf(
+		                            /* translators: %s: saved LicenseSender SKU */
+		                            __( 'Saved mapping: %s (not found in LicenseSender)', 'licensesender' ),
+		                            $mapped_value
+		                        )
+		                    );
+		                    ?>
+		                </option>
+		            <?php endif; ?>
 		        </select>
 	        </p>
 	    </div>
