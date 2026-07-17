@@ -89,7 +89,7 @@
 
 .ls-support-open-card {
   padding: 0;
-  overflow: hidden;
+  overflow: visible;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ls-support-brand) 5%, #fff) 0%, #fff 140px),
     #fff;
@@ -449,6 +449,54 @@
 .ls-support-select-wrap .select2-search--dropdown .select2-search__field:focus {
   border-color: var(--ls-support-brand) !important;
   box-shadow: 0 0 0 3px var(--ls-support-brand-ring) !important;
+}
+
+/* Body-appended Select2 menus (cross-theme safe). */
+body .select2-container.ls-support-select2-dropdown,
+body .select2-dropdown.ls-support-select2-dropdown {
+  z-index: 100050 !important;
+  border: 1px solid #d7dee8 !important;
+  border-radius: 11px !important;
+  overflow: hidden;
+  color-scheme: light;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  box-sizing: border-box;
+}
+
+body .select2-dropdown.ls-support-select2-dropdown .select2-results__option {
+  padding: 10px 14px !important;
+  color: #0f172a !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  background: #fff !important;
+}
+
+body .select2-dropdown.ls-support-select2-dropdown .select2-results__option--highlighted[aria-selected],
+body .select2-dropdown.ls-support-select2-dropdown .select2-results__option--highlighted.select2-results__option--selectable {
+  background-color: var(--ls-support-brand, #4f46e5) !important;
+  color: #fff !important;
+}
+
+body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown {
+  padding: 10px 12px !important;
+}
+
+body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .select2-search__field {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  border: 1px solid #d7dee8 !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: #fff !important;
+  color: #0f172a !important;
+}
+
+body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .select2-search__field:focus {
+  border-color: var(--ls-support-brand, #4f46e5) !important;
+  box-shadow: 0 0 0 3px var(--ls-support-brand-ring, rgba(79, 70, 229, 0.35)) !important;
 }
 
 .ls-support-help {

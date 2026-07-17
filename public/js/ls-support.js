@@ -116,10 +116,13 @@
       $el.select2('destroy');
     }
 
-    const $parent = $el.closest('.ls-support-select-wrap');
+    // Append dropdown to <body> so theme overflow/transform on cards
+    // cannot detach or clip the menu (common cross-theme Select2 bug).
     $el.select2({
       width: '100%',
-      dropdownParent: $parent.length ? $parent : $(document.body),
+      dropdownParent: $(document.body),
+      dropdownCssClass: 'ls-support-select2-dropdown',
+      containerCssClass: 'ls-support-select2-container',
       placeholder: $el.data('placeholder') || '',
       // Clear "x" only on optional pickers that have an empty placeholder option.
       allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
