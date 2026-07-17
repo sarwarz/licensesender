@@ -1713,7 +1713,7 @@ class LS_Support {
 	 * @return array<int, array>|WP_Error
 	 */
 	public static function validate_uploads( array $files ) {
-		$allowed      = array( 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'txt', 'zip' );
+		$allowed      = array( 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'mp4', 'webm', 'mov', 'm4v' );
 		$max_mb       = (int) apply_filters( 'ls_support_max_upload_mb', 5 );
 		$max_b        = max( 1, $max_mb ) * 1024 * 1024;
 		$max_files    = max( 1, (int) apply_filters( 'ls_support_max_upload_count', 5 ) );

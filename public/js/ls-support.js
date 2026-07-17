@@ -126,7 +126,11 @@
       placeholder: $el.data('placeholder') || '',
       // Clear "x" only on optional pickers that have an empty placeholder option.
       allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
-      minimumResultsForSearch: $el.is('#ls-support-order') ? 0 : 8,
+      minimumResultsForSearch: $el.is('#ls-support-order')
+        ? 0
+        : $el.is('#ls-support-license-key')
+          ? 8
+          : Infinity,
     });
   }
 
@@ -482,7 +486,7 @@
       html += '<div class="ls-support-reply-footer">';
       html += '<div class="ls-support-attach-col">';
       html += '<div class="ls-support-attach-row">';
-      html += '<input type="file" class="ls-support-file-input" id="ls-support-reply-attachments" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.zip" />';
+      html += '<input type="file" class="ls-support-file-input" id="ls-support-reply-attachments" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.mp4,.webm,.mov,.m4v,image/*,video/*,application/pdf" />';
       html += '<button type="button" class="button ls-support-btn-secondary ls-support-attach-link">' + escapeHtml(cfg.i18n.attachFile) + '</button>';
       html += '<span class="ls-support-attach-names" aria-live="polite">' + escapeHtml(cfg.i18n.noFilesSelected || 'No files selected') + '</span>';
       html += '</div>';
@@ -742,6 +746,10 @@
     if (!$wrap.length) {
       return;
     }
+
+    $wrap.find('select.ls-support-select2').each(function () {
+      initSupportSelect2($(this));
+    });
 
     const state = {
       search: '',

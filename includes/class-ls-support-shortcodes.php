@@ -153,11 +153,11 @@ class LS_Support_Shortcodes {
 							<div class="ls-support-field ls-support-attach-field">
 								<span class="ls-support-field-label-text"><?php esc_html_e( 'Attachments', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></span>
 								<div class="ls-support-open-attach">
-									<input type="file" class="ls-support-file-input" id="ls-support-attachments" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.txt,.zip" />
+									<input type="file" class="ls-support-file-input" id="ls-support-attachments" name="attachments[]" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.mp4,.webm,.mov,.m4v,image/*,video/*,application/pdf" />
 									<button type="button" class="button ls-support-btn-secondary ls-support-attach-link"><?php esc_html_e( 'Attach files', 'licensesender' ); ?></button>
 									<span class="ls-support-attach-names" aria-live="polite"><?php esc_html_e( 'No files selected', 'licensesender' ); ?></span>
 								</div>
-								<p class="ls-support-help"><?php esc_html_e( 'Images, PDF, TXT, or ZIP up to 5 MB each.', 'licensesender' ); ?></p>
+								<p class="ls-support-help"><?php esc_html_e( 'Images, PDF, or video up to 5 MB each.', 'licensesender' ); ?></p>
 							</div>
 						</section>
 
@@ -261,20 +261,24 @@ class LS_Support_Shortcodes {
 							<div class="ls-support-toolbar-controls">
 								<div class="ls-support-filter-field">
 									<label class="ls-support-field-label" for="ls-support-filter-status"><?php esc_html_e( 'Status', 'licensesender' ); ?></label>
-									<select id="ls-support-filter-status" class="ls-support-filter-select" aria-label="<?php esc_attr_e( 'Status', 'licensesender' ); ?>">
-										<?php foreach ( LS_Support::get_status_filter_options() as $value => $label ) : ?>
-											<option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
-										<?php endforeach; ?>
-									</select>
+									<div class="ls-support-select-wrap">
+										<select id="ls-support-filter-status" class="ls-support-filter-select ls-support-select2" aria-label="<?php esc_attr_e( 'Status', 'licensesender' ); ?>">
+											<?php foreach ( LS_Support::get_status_filter_options() as $value => $label ) : ?>
+												<option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
+											<?php endforeach; ?>
+										</select>
+									</div>
 								</div>
 
 								<div class="ls-support-filter-field">
 									<label class="ls-support-field-label" for="ls-support-filter-sort"><?php esc_html_e( 'Sort', 'licensesender' ); ?></label>
-									<select id="ls-support-filter-sort" class="ls-support-filter-select" aria-label="<?php esc_attr_e( 'Sort by', 'licensesender' ); ?>">
-										<?php foreach ( LS_Support::get_sort_options() as $value => $label ) : ?>
-											<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $value, 'updated_at' ); ?>><?php echo esc_html( $label ); ?></option>
-										<?php endforeach; ?>
-									</select>
+									<div class="ls-support-select-wrap">
+										<select id="ls-support-filter-sort" class="ls-support-filter-select ls-support-select2" aria-label="<?php esc_attr_e( 'Sort by', 'licensesender' ); ?>">
+											<?php foreach ( LS_Support::get_sort_options() as $value => $label ) : ?>
+												<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $value, 'updated_at' ); ?>><?php echo esc_html( $label ); ?></option>
+											<?php endforeach; ?>
+										</select>
+									</div>
 								</div>
 
 								<div class="ls-support-toolbar-actions">
