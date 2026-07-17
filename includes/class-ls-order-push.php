@@ -53,7 +53,8 @@ class LS_Order_Push {
 	}
 
 	/**
-	 * Cron/AS callback: ingest order on SaaS, then fetch/cache licenses (new orders only).
+	 * Cron/AS callback: ingest order on SaaS only.
+	 * Keys are assigned when the customer clicks Get Key (or admin fetches) — not on complete.
 	 *
 	 * @param int $order_id Order ID.
 	 */
@@ -65,13 +66,7 @@ class LS_Order_Push {
 			return;
 		}
 
-		$ingest_only = $order->get_meta( self::META_INGEST_ONLY ) === 'yes';
-
 		if ( $order->get_meta( self::META_PUSHED ) === 'yes' ) {
-			// Backfilled historical orders must never assign/deliver keys again.
-			if ( ! $ingest_only ) {
-				self::auto_deliver_licenses( $order );
-			}
 			return;
 		}
 
@@ -93,10 +88,6 @@ class LS_Order_Push {
 		$order->update_meta_data( self::META_PUSHED, 'yes' );
 		$order->update_meta_data( self::META_ATTEMPTS, (int) $order->get_meta( self::META_ATTEMPTS ) + 1 );
 		$order->save();
-
-		if ( ! $ingest_only ) {
-			self::auto_deliver_licenses( $order );
-		}
 	}
 
 	/**
@@ -420,7 +411,8 @@ class LS_Order_Push {
 
 	/**
 	 * Fetch licenses for each mapped line item and cache locally.
-	 * Used only for NEW completed orders — never for historical backfill.
+	 * Kept for admin/manual use. Order-complete push no longer calls this —
+	 * customers assign keys via Get Key on My Keys / thank-you flows.
 	 *
 	 * @param WC_Order $order Order.
 	 */
@@ -472,7 +464,8 @@ class LS_Order_Push {
 					'quantity' => $need,
 					'order_id' => $order_id,
 					'email'    => $email,
-					'source'   => 'woocommerce',
+					// Keep Source consistent with My Keys / other fetch paths (shop name, not platform).
+					'source'   => sanitize_title( get_bloginfo( 'name' ) ) ?: 'woocommerce',
 				)
 			);
 
