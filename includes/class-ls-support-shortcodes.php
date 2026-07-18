@@ -712,9 +712,13 @@ class LS_Support_Shortcodes {
 			return;
 		}
 
+		// Use a same-site relative path only. Full https:// URLs in query strings
+		// are often blocked by ModSecurity / Cloudflare / security plugins (HTTP 403).
+		$redirect_path = self::to_relative_path( $redirect_url );
+
 		$login_url = add_query_arg(
 			array(
-				'ls_support_redirect' => $redirect_url,
+				'ls_support_redirect' => $redirect_path,
 			),
 			$account_url
 		);
@@ -734,6 +738,52 @@ class LS_Support_Shortcodes {
 		}
 		echo '</div>';
 		echo '</div>';
+	}
+
+	/**
+	 * Convert an absolute same-site URL to a relative path (path + query + fragment).
+	 */
+	private static function to_relative_path( $url ) {
+		$url = (string) $url;
+		if ( $url === '' ) {
+			return '/';
+		}
+
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) ) {
+			return '/';
+		}
+
+		// Already relative.
+		if ( empty( $parts['host'] ) && ! empty( $parts['path'] ) && str_starts_with( $parts['path'], '/' ) ) {
+			$path = $parts['path'];
+			if ( ! empty( $parts['query'] ) ) {
+				$path .= '?' . $parts['query'];
+			}
+			if ( ! empty( $parts['fragment'] ) ) {
+				$path .= '#' . $parts['fragment'];
+			}
+			return $path;
+		}
+
+		$home_host = wp_parse_url( home_url(), PHP_URL_HOST );
+		if ( ! empty( $parts['host'] ) && $home_host && strcasecmp( (string) $parts['host'], (string) $home_host ) !== 0 ) {
+			// Foreign host — refuse and fall back to home.
+			return '/';
+		}
+
+		$path = isset( $parts['path'] ) && $parts['path'] !== '' ? $parts['path'] : '/';
+		if ( ! str_starts_with( $path, '/' ) ) {
+			$path = '/' . $path;
+		}
+		if ( ! empty( $parts['query'] ) ) {
+			$path .= '?' . $parts['query'];
+		}
+		if ( ! empty( $parts['fragment'] ) ) {
+			$path .= '#' . $parts['fragment'];
+		}
+
+		return $path;
 	}
 
 	private static function render_wc_auth_section( $redirect_url ) {
@@ -780,8 +830,15 @@ class LS_Support_Shortcodes {
 		}
 
 		// Tolerate a single extra encode from older links.
-		if ( str_contains( $raw, '%' ) && ! str_contains( $raw, '://' ) ) {
+		if ( str_contains( $raw, '%' ) && ! str_contains( $raw, '://' ) && ! str_starts_with( $raw, '/' ) ) {
 			$raw = rawurldecode( $raw );
+		}
+
+		// Prefer relative paths (WAF-safe). Absolute same-site URLs still accepted.
+		if ( str_starts_with( $raw, '/' ) ) {
+			$absolute = home_url( $raw );
+			$validated = wp_validate_redirect( $absolute, false );
+			return $validated ? $validated : '';
 		}
 
 		$raw = esc_url_raw( $raw );

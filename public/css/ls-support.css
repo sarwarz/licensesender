@@ -1506,7 +1506,7 @@ body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .se
   margin: 0 0 18px;
   font-size: 14px;
   line-height: 1.5;
-  color: #64748b;
+  color: color-mix(in srgb, currentColor 72%, transparent);
 }
 
 .ls-support-auth-cta-actions {
@@ -1519,6 +1519,45 @@ body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .se
   min-width: 140px;
   text-align: center;
   text-decoration: none !important;
+}
+
+/* Auth gate card: hug content width and inherit theme colors (light/dark). */
+.ls-support-card.ls-support-auth-card {
+  width: fit-content;
+  min-width: min(420px, 100%);
+  max-width: 100%;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  border-color: color-mix(in srgb, currentColor 14%, transparent);
+  box-shadow: none;
+  color: inherit;
+}
+
+.ls-support-auth-card .ls-support-title {
+  color: inherit;
+}
+
+.ls-support-auth-card .ls-support-lead {
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+
+.ls-support-auth-card .ls-support-wc-auth label {
+  color: inherit;
+}
+
+.ls-support-auth-card .ls-support-auth-switch {
+  color: color-mix(in srgb, currentColor 72%, transparent);
+}
+
+.ls-support-auth-cta-actions .ls-support-btn-secondary {
+  background: color-mix(in srgb, currentColor 8%, transparent) !important;
+  border-color: color-mix(in srgb, currentColor 28%, transparent) !important;
+  color: inherit !important;
+}
+
+.ls-support-auth-cta-actions .ls-support-btn-secondary:hover {
+  background: color-mix(in srgb, var(--ls-support-brand) 22%, transparent) !important;
+  border-color: var(--ls-support-brand) !important;
+  color: inherit !important;
 }
 
 .ls-support-auth-card .woocommerce-notices-wrapper {
