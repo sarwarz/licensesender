@@ -1521,15 +1521,33 @@ body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .se
   text-decoration: none !important;
 }
 
-/* Auth gate card: hug content width and inherit theme colors (light/dark). */
+/* Auth gate card: hug content width, stay page-centered, inherit theme colors (light/dark). */
 .ls-support-card.ls-support-auth-card {
   width: fit-content;
   min-width: min(420px, 100%);
   max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
   background: color-mix(in srgb, currentColor 4%, transparent);
   border-color: color-mix(in srgb, currentColor 14%, transparent);
   box-shadow: none;
   color: inherit;
+}
+
+.ls-support-auth-card .ls-support-auth-cta {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.ls-support-auth-card .ls-support-auth-cta-actions {
+  justify-content: center;
+}
+
+.ls-support-auth-card .ls-support-wc-auth {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: left;
 }
 
 .ls-support-auth-card .ls-support-title {

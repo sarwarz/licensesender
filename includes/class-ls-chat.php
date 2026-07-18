@@ -232,6 +232,8 @@ class LS_Chat {
 					'isTyping'        => __( 'is typing', 'licensesender' ),
 					'aiTyping'        => __( 'AI Assistant is typing', 'licensesender' ),
 					'aiResumed'       => __( 'The AI assistant is back to help you.', 'licensesender' ),
+					'restoring'       => __( 'Opening your chat…', 'licensesender' ),
+					'openOriginal'    => __( 'Open', 'licensesender' ),
 				),
 			)
 		);
@@ -289,7 +291,9 @@ class LS_Chat {
 	}
 
 	protected static function ajax_start() {
-		$existing = self::cookie_session();
+		$resume_only = ! empty( $_POST['resume_only'] );
+		$existing    = self::cookie_session();
+
 		if ( $existing['id'] && $existing['token'] ) {
 			$response = Licensesender_Api::chat_poll( $existing['id'], $existing['token'], 0 );
 			$resumed_session = is_array( $response['data']['session'] ?? null ) ? $response['data']['session'] : array();
@@ -307,6 +311,11 @@ class LS_Chat {
 				);
 			}
 			self::clear_cookies();
+		}
+
+		// Soft resume check (on open/refresh) — do not create a new session.
+		if ( $resume_only ) {
+			wp_send_json_error( array( 'message' => __( 'No active chat session.', 'licensesender' ) ), 404 );
 		}
 
 		$name  = isset( $_POST['visitor_name'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['visitor_name'] ) ) : '';
@@ -645,18 +654,34 @@ class LS_Chat {
 		$token      = (string) $token;
 
 		if ( PHP_VERSION_ID >= 70300 ) {
-			$opts = array(
-				'expires'  => $expire,
-				'path'     => $path,
-				'domain'   => $domain,
-				'secure'   => $secure,
-				'httponly' => true,
-				'samesite' => 'Lax',
+			// Session id is readable by JS so the widget can skip a resume round-trip
+			// when there is no active session. The secret token stays HttpOnly.
+			setcookie(
+				self::COOKIE_SESSION_ID,
+				(string) $session_id,
+				array(
+					'expires'  => $expire,
+					'path'     => $path,
+					'domain'   => $domain,
+					'secure'   => $secure,
+					'httponly' => false,
+					'samesite' => 'Lax',
+				)
 			);
-			setcookie( self::COOKIE_SESSION_ID, (string) $session_id, $opts );
-			setcookie( self::COOKIE_TOKEN, $token, $opts );
+			setcookie(
+				self::COOKIE_TOKEN,
+				$token,
+				array(
+					'expires'  => $expire,
+					'path'     => $path,
+					'domain'   => $domain,
+					'secure'   => $secure,
+					'httponly' => true,
+					'samesite' => 'Lax',
+				)
+			);
 		} else {
-			setcookie( self::COOKIE_SESSION_ID, (string) $session_id, $expire, $path, $domain, $secure, true );
+			setcookie( self::COOKIE_SESSION_ID, (string) $session_id, $expire, $path, $domain, $secure, false );
 			setcookie( self::COOKIE_TOKEN, $token, $expire, $path, $domain, $secure, true );
 		}
 

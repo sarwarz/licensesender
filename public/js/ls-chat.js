@@ -119,17 +119,21 @@
     attachments.forEach(function (file) {
       var link = el('a', file.is_image ? 'ls-chat__attachment-image' : 'ls-chat__attachment-file');
       link.href = file.url || '#';
-      link.target = '_blank';
       link.rel = 'noopener';
       link.setAttribute('aria-label', file.name || 'Attachment');
 
       if (file.is_image) {
+        link.classList.add('ls-chat__attachment-image--lightbox');
+        link.setAttribute('data-ls-lightbox', '1');
+        link.setAttribute('data-ls-lightbox-url', file.url || '');
+        link.setAttribute('data-ls-lightbox-name', file.name || 'Image');
         var image = document.createElement('img');
         image.src = file.url;
         image.alt = file.name || 'Image attachment';
         image.loading = 'lazy';
         link.appendChild(image);
       } else {
+        link.target = '_blank';
         link.appendChild(svg('M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm1 9H7V9h8zm0 4H7v-2h8zm-2-6V3.5L18.5 9z'));
         var copy = el('span', 'ls-chat__attachment-copy');
         copy.appendChild(el('strong', '', file.name || 'Attachment'));
@@ -658,11 +662,164 @@
     chatBody.appendChild(feed);
     chatBody.appendChild(footer);
 
+    var restoring = el('div', 'ls-chat__restoring');
+    restoring.hidden = true;
+    restoring.setAttribute('aria-live', 'polite');
+    restoring.appendChild(el('div', 'ls-chat__restoring-spinner'));
+    restoring.appendChild(
+      el('p', 'ls-chat__restoring-text', cfg.i18n.restoring || 'Opening your chat…')
+    );
+
     panel.appendChild(header);
     panel.appendChild(gate);
+    panel.appendChild(restoring);
     panel.appendChild(chatBody);
+
+    var lightbox = el('div', 'ls-chat__lightbox');
+    lightbox.hidden = true;
+    lightbox.setAttribute('role', 'dialog');
+    lightbox.setAttribute('aria-modal', 'true');
+    lightbox.setAttribute('aria-label', 'Image preview');
+    var lightboxBackdrop = el('button', 'ls-chat__lightbox-backdrop');
+    lightboxBackdrop.type = 'button';
+    lightboxBackdrop.setAttribute('aria-label', 'Close');
+    var lightboxDialog = el('div', 'ls-chat__lightbox-dialog');
+    var lightboxHeader = el('div', 'ls-chat__lightbox-header');
+    var lightboxTitle = el('span', 'ls-chat__lightbox-title', 'Image');
+    var lightboxActions = el('div', 'ls-chat__lightbox-actions');
+    var lightboxOpen = el('a', 'ls-chat__lightbox-open', cfg.i18n.openOriginal || 'Open');
+    lightboxOpen.target = '_blank';
+    lightboxOpen.rel = 'noopener';
+    lightboxOpen.href = '#';
+    var lightboxClose = el('button', 'ls-chat__lightbox-close', '×');
+    lightboxClose.type = 'button';
+    lightboxClose.setAttribute('aria-label', 'Close');
+    lightboxActions.appendChild(lightboxOpen);
+    lightboxActions.appendChild(lightboxClose);
+    lightboxHeader.appendChild(lightboxTitle);
+    lightboxHeader.appendChild(lightboxActions);
+    var lightboxBody = el('div', 'ls-chat__lightbox-body');
+    var lightboxImg = document.createElement('img');
+    lightboxImg.alt = '';
+    lightboxBody.appendChild(lightboxImg);
+    lightboxDialog.appendChild(lightboxHeader);
+    lightboxDialog.appendChild(lightboxBody);
+    lightbox.appendChild(lightboxBackdrop);
+    lightbox.appendChild(lightboxDialog);
+    // Must live inside the panel — the root collapses to 0×0 when open
+    // (launcher hidden + panel is position:absolute), so a root-level overlay was invisible.
+    panel.appendChild(lightbox);
+
     root.appendChild(launcher);
     root.appendChild(panel);
+
+    function closeLightbox() {
+      lightbox.hidden = true;
+      panel.classList.remove('is-lightbox-open');
+      lightboxImg.removeAttribute('src');
+      lightboxImg.alt = '';
+      lightboxOpen.href = '#';
+    }
+
+    function openLightbox(url, name) {
+      if (!url || url === '#') return;
+      lightboxTitle.textContent = name || 'Image';
+      lightboxImg.src = url;
+      lightboxImg.alt = name || 'Image';
+      lightboxOpen.href = url;
+      lightbox.hidden = false;
+      panel.classList.add('is-lightbox-open');
+      try {
+        lightboxClose.focus();
+      } catch (e) {}
+    }
+
+    function applyStartedSession(data) {
+      state.started = true;
+      state.sessionId = data.session_id;
+      state.lastMessageId = 0;
+      feed.innerHTML = '';
+      feed.appendChild(el('div', 'ls-chat__day', cfg.i18n.today || 'Today'));
+      showChat();
+      renderMessages(feed, data.messages || []);
+      if ((!data.messages || !data.messages.length) && cfg.welcome) {
+        appendMessage(
+          feed,
+          { id: 'welcome-local', role: 'assistant', body: cfg.welcome },
+          { label: cfg.i18n.assistant || 'AI Assistant' }
+        );
+      }
+      applySessionState(data.session, chatStatus, subtitleNode);
+      startPoll(feed, chatStatus, subtitleNode);
+      initRealtime(feed, chatStatus, subtitleNode);
+    }
+
+    function showRestoring() {
+      gate.hidden = true;
+      chatBody.hidden = true;
+      restoring.hidden = false;
+    }
+
+    function showChat() {
+      restoring.hidden = true;
+      gate.hidden = true;
+      chatBody.hidden = false;
+      try {
+        textarea.focus();
+      } catch (e) {}
+    }
+
+    function showGate() {
+      restoring.hidden = true;
+      gate.hidden = false;
+      chatBody.hidden = true;
+      state.sessionClosed = false;
+      setComposerEnabled(true);
+      root.classList.remove('is-session-closed');
+      var titleNode = document.querySelector('#ls-chat-root .ls-chat__title');
+      if (titleNode) {
+        titleNode.textContent = cfg.i18n.title || 'Chat with us';
+      }
+      subtitleNode.textContent =
+        cfg.i18n.agentRole || cfg.i18n.online || 'Online · typically replies in a few minutes';
+    }
+
+    var resumeAttempted = false;
+    var resumeInFlight = false;
+
+    function tryResumeSession() {
+      if (state.started || resumeInFlight || resumeAttempted) {
+        return;
+      }
+
+      resumeAttempted = true;
+      resumeInFlight = true;
+      if (state.open) {
+        showRestoring();
+      }
+
+      post('ls_chat_start', {
+        visitor_name: (cfg.visitorName || '').trim(),
+        visitor_email: (cfg.visitorEmail || '').trim(),
+        origin_url: window.location.href,
+        resume_only: '1',
+      })
+        .then(function (data) {
+          if (data && data.session_id && (data.resumed || data.session)) {
+            applyStartedSession(data);
+          } else if (state.open) {
+            showGate();
+          }
+        })
+        .catch(function () {
+          if (state.open && !state.started) {
+            showGate();
+          }
+        })
+        .finally(function () {
+          resumeInFlight = false;
+        });
+    }
 
     function setMenu(open) {
       state.menuOpen = open;
@@ -675,9 +832,27 @@
       root.classList.toggle('is-open', open);
       launcher.setAttribute('aria-expanded', open ? 'true' : 'false');
       setMenu(false);
-      if (open && !state.started) {
-        (cfg.requireEmail ? emailInput : nameInput).focus();
+      if (!open) {
+        closeLightbox();
+        return;
       }
+
+      if (state.started) {
+        showChat();
+        return;
+      }
+
+      // Resume still loading — show spinner, never flash the Start form.
+      if (resumeInFlight || !resumeAttempted) {
+        showRestoring();
+        tryResumeSession();
+        return;
+      }
+
+      showGate();
+      try {
+        (cfg.requireEmail ? emailInput : nameInput).focus();
+      } catch (e) {}
     }
 
     function setBusy(busy, showTyping) {
@@ -812,26 +987,6 @@
 
     state.setComposerEnabled = setComposerEnabled;
 
-    function showChat() {
-      gate.hidden = true;
-      chatBody.hidden = false;
-      textarea.focus();
-    }
-
-    function showGate() {
-      gate.hidden = false;
-      chatBody.hidden = true;
-      state.sessionClosed = false;
-      setComposerEnabled(true);
-      root.classList.remove('is-session-closed');
-      var titleNode = document.querySelector('#ls-chat-root .ls-chat__title');
-      if (titleNode) {
-        titleNode.textContent = cfg.i18n.title || 'Chat with us';
-      }
-      subtitleNode.textContent =
-        cfg.i18n.agentRole || cfg.i18n.online || 'Online · typically replies in a few minutes';
-    }
-
     launcher.addEventListener('click', function () {
       setOpen(true);
     });
@@ -863,23 +1018,7 @@
         origin_url: window.location.href,
       })
         .then(function (data) {
-          state.started = true;
-          state.sessionId = data.session_id;
-          state.lastMessageId = 0;
-          feed.innerHTML = '';
-          feed.appendChild(el('div', 'ls-chat__day', cfg.i18n.today || 'Today'));
-          showChat();
-          renderMessages(feed, data.messages || []);
-          if ((!data.messages || !data.messages.length) && cfg.welcome) {
-            appendMessage(
-              feed,
-              { id: 'welcome-local', role: 'assistant', body: cfg.welcome },
-              { label: cfg.i18n.assistant || 'AI Assistant' }
-            );
-          }
-          applySessionState(data.session, chatStatus, subtitleNode);
-          startPoll(feed, chatStatus, subtitleNode);
-          initRealtime(feed, chatStatus, subtitleNode);
+          applyStartedSession(data);
         })
         .catch(function (err) {
           setStatus(gateStatus, err.message || cfg.i18n.error, 'is-error');
@@ -954,6 +1093,23 @@
     sendBtn.addEventListener('click', send);
     attachmentBtn.addEventListener('click', function () {
       attachmentInput.click();
+    });
+    panel.addEventListener('click', function (event) {
+      var link = event.target.closest('[data-ls-lightbox="1"]');
+      if (!link || !panel.contains(link)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openLightbox(
+        link.getAttribute('data-ls-lightbox-url') || link.getAttribute('href') || '',
+        link.getAttribute('data-ls-lightbox-name') || 'Image'
+      );
+    });
+    lightboxBackdrop.addEventListener('click', closeLightbox);
+    lightboxClose.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !lightbox.hidden) {
+        closeLightbox();
+      }
     });
     attachmentInput.addEventListener('change', function () {
       var incoming = Array.prototype.slice.call(attachmentInput.files || []);
@@ -1087,6 +1243,9 @@
 
     escalateItem.addEventListener('click', escalate);
     endItem.addEventListener('click', endChat);
+
+    // Warm resume in the background so opening the widget feels instant.
+    tryResumeSession();
   }
 
   if (document.readyState === 'loading') {
