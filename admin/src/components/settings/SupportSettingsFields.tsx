@@ -192,6 +192,20 @@ export function SupportSettingsFields({
 
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5">
             <div className="space-y-1 pr-4">
+              <Label htmlFor="lship_support_auth_my_account">Login / register via My Account</Label>
+              <p className="text-xs text-muted-foreground">
+                Recommended when the store uses Cloudflare Turnstile, Google reCAPTCHA, or other captcha plugins. Customers sign in on WooCommerce My Account, then return to support.
+              </p>
+            </div>
+            <Switch
+              id="lship_support_auth_my_account"
+              checked={settings.lship_support_auth_my_account !== 'no'}
+              onCheckedChange={(v) => onChange('lship_support_auth_my_account', v ? 'yes' : 'no')}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="space-y-1 pr-4">
               <Label htmlFor="lship_support_my_account">Add to WooCommerce My Account</Label>
               <p className="text-xs text-muted-foreground">
                 Shows a Support Tickets item in the customer My Account menu and opens the manage portal.
@@ -245,6 +259,12 @@ export function SupportSettingsFields({
                 <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
                   <ExternalLink className="h-3.5 w-3.5" />
                   My Account menu will include Support Tickets
+                </div>
+              ) : null}
+              {settings.lship_support_auth_my_account !== 'no' ? (
+                <div className="flex items-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Login/register uses My Account (captcha-safe)
                 </div>
               ) : null}
             </div>

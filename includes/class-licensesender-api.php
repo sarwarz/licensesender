@@ -1038,7 +1038,7 @@ class Licensesender_Api {
      * @param string               $customer_email Optional verified shop customer email.
      * @return array<string, mixed>
      */
-    protected static function request_multipart_post( $path, array $fields, array $files = array(), $access_token = '', $customer_email = '' ) {
+    protected static function request_multipart_post( $path, array $fields, array $files = array(), $access_token = '', $customer_email = '', $chat_token = '' ) {
         $api_key = static::get_api_key();
 
         if ( empty( $api_key ) ) {
@@ -1061,13 +1061,16 @@ class Licensesender_Api {
         $url = trailingslashit( $base ) . ltrim( $path, '/' );
 
         $multipart = static::build_multipart_body( $fields, $files );
+        $headers = static::support_headers( $access_token, $customer_email );
+        if ( trim( (string) $chat_token ) !== '' ) {
+            $headers['X-Chat-Session-Token'] = trim( (string) $chat_token );
+        }
+        $headers['Content-Type'] = 'multipart/form-data; boundary=' . $multipart['boundary'];
+
         $response  = wp_remote_post(
             $url,
             array(
-                'headers' => array_merge(
-                    static::support_headers( $access_token, $customer_email ),
-                    array( 'Content-Type' => 'multipart/form-data; boundary=' . $multipart['boundary'] )
-                ),
+                'headers' => $headers,
                 'body'    => $multipart['body'],
                 'timeout' => 60,
             )
@@ -1459,7 +1462,18 @@ class Licensesender_Api {
      * @param array<string, mixed> $fields     Message fields.
      * @return array<string, mixed>
      */
-    public static function chat_send( $session_id, $token, array $fields ) {
+    public static function chat_send( $session_id, $token, array $fields, array $files = array() ) {
+        if ( $files !== array() ) {
+            return static::request_multipart_post(
+                'chat/sessions/' . absint( $session_id ) . '/messages',
+                $fields,
+                $files,
+                '',
+                '',
+                (string) $token
+            );
+        }
+
         return static::request_chat(
             'POST',
             'chat/sessions/' . absint( $session_id ) . '/messages',
@@ -1486,6 +1500,23 @@ class Licensesender_Api {
     }
 
     /**
+     * Update visitor typing state.
+     *
+     * @param int                  $session_id Session ID.
+     * @param string               $token      Public session token.
+     * @param array<string, mixed> $fields     Typing fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_typing( $session_id, $token, array $fields = array() ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/typing',
+            $fields,
+            (string) $token
+        );
+    }
+
+    /**
      * Escalate chat to a support ticket.
      *
      * @param int                  $session_id Session ID.
@@ -1494,9 +1525,53 @@ class Licensesender_Api {
      * @return array<string, mixed>
      */
     public static function chat_escalate( $session_id, $token, array $fields = array() ) {
+        return static::chat_handoff( $session_id, $token, $fields );
+    }
+
+    /**
+     * Request a live human agent (first-claim queue).
+     *
+     * @param int                  $session_id Session ID.
+     * @param string               $token      Public session token.
+     * @param array<string, mixed> $fields     Handoff fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_handoff( $session_id, $token, array $fields = array() ) {
         return static::request_chat(
             'POST',
-            'chat/sessions/' . absint( $session_id ) . '/escalate',
+            'chat/sessions/' . absint( $session_id ) . '/handoff',
+            $fields,
+            (string) $token
+        );
+    }
+
+    /**
+     * Issue a short-lived visitor broadcast credential.
+     *
+     * @param int    $session_id Session ID.
+     * @param string $token      Public session token.
+     * @return array<string, mixed>
+     */
+    public static function chat_broadcast_credential( $session_id, $token ) {
+        return static::request_chat(
+            'POST',
+            'chat/sessions/' . absint( $session_id ) . '/broadcast-credential',
+            array(),
+            (string) $token
+        );
+    }
+
+    /**
+     * Authorize a visitor private channel for Reverb/Pusher.
+     *
+     * @param string               $token  Public session token (API key auth still applied).
+     * @param array<string, mixed> $fields Auth fields.
+     * @return array<string, mixed>
+     */
+    public static function chat_broadcast_auth( $token, array $fields ) {
+        return static::request_chat(
+            'POST',
+            'chat/broadcasting/auth',
             $fields,
             (string) $token
         );

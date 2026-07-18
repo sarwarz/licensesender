@@ -1497,6 +1497,30 @@ body .select2-dropdown.ls-support-select2-dropdown .select2-search--dropdown .se
   margin-top: 8px;
 }
 
+.ls-support-auth-cta {
+  margin-top: 8px;
+  max-width: 520px;
+}
+
+.ls-support-auth-cta-help {
+  margin: 0 0 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #64748b;
+}
+
+.ls-support-auth-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ls-support-auth-cta-actions .button {
+  min-width: 140px;
+  text-align: center;
+  text-decoration: none !important;
+}
+
 .ls-support-auth-card .woocommerce-notices-wrapper {
   margin-bottom: 16px;
 }

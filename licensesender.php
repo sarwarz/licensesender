@@ -10,7 +10,7 @@
  * Plugin Name:       LicenseSender
  * Plugin URI:        https://licensesender.com
  * Description:       Deliver license keys for digital products via your LicenseSender App (on Get Key click).
- * Version:           1.1.4
+ * Version:           1.1.5
  * Author:            LicenseSender
  * Author URI:        https://licensesender.com
  * License:           GPL-2.0+
@@ -27,12 +27,14 @@ if ( ! defined( 'WPINC' ) ) {
 /**
  * Plugin version (must match header)
  */
-define( 'LICENSESENDER_VERSION', '1.1.4' );
+define( 'LICENSESENDER_VERSION', '1.1.5' );
 
 /**
  * Fixed licensesender API base URL (not configurable in settings).
  */
-define( 'LICENSESENDER_API_BASE_URL', 'https://licensesender.com/api/' );
+ define( 'LICENSESENDER_API_BASE_URL', 'https://licensesender.com/api/' );
+
+
 
 /**
  * ----------------------------------------------------

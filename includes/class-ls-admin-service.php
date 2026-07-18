@@ -964,16 +964,18 @@ class LS_Admin_Service {
 				);
 			case 'support':
 				return array(
-					'lship_support_enabled'         => get_option( 'lship_support_enabled', 'yes' ),
-					'lship_support_open_page_id'    => (string) get_option( 'lship_support_open_page_id', '' ),
-					'lship_support_manage_page_id'  => (string) get_option( 'lship_support_manage_page_id', '' ),
-					'lship_support_my_account'      => get_option( 'lship_support_my_account', 'no' ),
-					'pages'                         => self::get_page_choices(),
+					'lship_support_enabled'           => get_option( 'lship_support_enabled', 'yes' ),
+					'lship_support_open_page_id'      => (string) get_option( 'lship_support_open_page_id', '' ),
+					'lship_support_manage_page_id'    => (string) get_option( 'lship_support_manage_page_id', '' ),
+					'lship_support_my_account'        => get_option( 'lship_support_my_account', 'no' ),
+					'lship_support_auth_my_account'   => get_option( 'lship_support_auth_my_account', 'yes' ),
+					'pages'                           => self::get_page_choices(),
 				);
 			case 'chat':
 				return array(
 					'lship_chat_enabled'        => get_option( 'lship_chat_enabled', 'no' ),
 					'lship_chat_require_email'  => get_option( 'lship_chat_require_email', 'no' ),
+					'lship_chat_title'          => get_option( 'lship_chat_title', '' ),
 					'lship_chat_welcome'        => get_option( 'lship_chat_welcome', '' ),
 					'lship_chat_color'          => get_option( 'lship_chat_color', get_option( 'ls_brand', '#0f766e' ) ),
 					'lship_chat_launcher_style' => get_option( 'lship_chat_launcher_style', 'icon' ),
@@ -1119,6 +1121,10 @@ class LS_Admin_Service {
 				update_option( 'lship_support_manage_page_id', absint( $data['lship_support_manage_page_id'] ?? 0 ) );
 				$my_account = ( $data['lship_support_my_account'] ?? 'no' ) === 'yes' ? 'yes' : 'no';
 				update_option( 'lship_support_my_account', $my_account );
+				update_option(
+					'lship_support_auth_my_account',
+					( $data['lship_support_auth_my_account'] ?? 'yes' ) === 'yes' ? 'yes' : 'no'
+				);
 				if ( 'yes' === $my_account && class_exists( 'LS_Support_Endpoint' ) ) {
 					LS_Support_Endpoint::add_endpoint();
 					flush_rewrite_rules( false );
@@ -1127,6 +1133,7 @@ class LS_Admin_Service {
 			case 'chat':
 				update_option( 'lship_chat_enabled', ( $data['lship_chat_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_chat_require_email', ( $data['lship_chat_require_email'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+				update_option( 'lship_chat_title', sanitize_text_field( (string) ( $data['lship_chat_title'] ?? '' ) ) );
 				update_option( 'lship_chat_welcome', sanitize_textarea_field( (string) ( $data['lship_chat_welcome'] ?? '' ) ) );
 				$chat_color = sanitize_hex_color( (string) ( $data['lship_chat_color'] ?? '' ) );
 				update_option( 'lship_chat_color', $chat_color ? $chat_color : '' );

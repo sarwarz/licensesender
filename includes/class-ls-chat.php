@@ -26,7 +26,11 @@ class LS_Chat {
 			'ls_chat_start',
 			'ls_chat_send',
 			'ls_chat_poll',
+			'ls_chat_typing',
 			'ls_chat_escalate',
+			'ls_chat_handoff',
+			'ls_chat_broadcast_bootstrap',
+			'ls_chat_broadcast_auth',
 			'ls_chat_close',
 			'ls_chat_feedback',
 		);
@@ -99,20 +103,50 @@ class LS_Chat {
 		return in_array( $style, array( 'icon', 'label' ), true ) ? $style : 'icon';
 	}
 
+	/**
+	 * Widget header title shown before a chat starts.
+	 *
+	 * @return string
+	 */
+	public static function widget_title() {
+		$custom = trim( (string) get_option( 'lship_chat_title', '' ) );
+		if ( $custom !== '' ) {
+			return $custom;
+		}
+
+		return __( 'Chat with us', 'licensesender' );
+	}
+
+	/**
+	 * Header subtitle — personalized when the visitor is logged in.
+	 *
+	 * @param \WP_User|null $user Current user.
+	 * @return string
+	 */
+	public static function widget_subtitle( $user = null ) {
+		if ( ! $user instanceof WP_User ) {
+			$user = wp_get_current_user();
+		}
+
+		if ( $user && $user->exists() && $user->display_name ) {
+			/* translators: %s: visitor display name */
+			return sprintf( __( 'Hi %s — we typically reply in a few minutes', 'licensesender' ), $user->display_name );
+		}
+
+		return __( 'Online · typically replies in a few minutes', 'licensesender' );
+	}
+
 	public static function enqueue_assets() {
 		if ( is_admin() || ! self::is_enabled() ) {
 			return;
 		}
 
-		$base = plugin_dir_url( dirname( __FILE__ ) ) . 'public/';
-		$ver  = defined( 'LICENSESENDER_VERSION' ) ? LICENSESENDER_VERSION : '1.0.0';
-		$css  = plugin_dir_path( dirname( __FILE__ ) ) . 'public/css/ls-chat.css';
-		$js   = plugin_dir_path( dirname( __FILE__ ) ) . 'public/js/ls-chat.js';
-		if ( file_exists( $css ) ) {
-			$ver .= '.' . (string) filemtime( $css );
-		} elseif ( file_exists( $js ) ) {
-			$ver .= '.' . (string) filemtime( $js );
-		}
+		$base    = plugin_dir_url( dirname( __FILE__ ) ) . 'public/';
+		$base_ver = defined( 'LICENSESENDER_VERSION' ) ? LICENSESENDER_VERSION : '1.0.0';
+		$css     = plugin_dir_path( dirname( __FILE__ ) ) . 'public/css/ls-chat.css';
+		$js      = plugin_dir_path( dirname( __FILE__ ) ) . 'public/js/ls-chat.js';
+		$css_ver = $base_ver . ( file_exists( $css ) ? '.' . (string) filemtime( $css ) : '' );
+		$js_ver  = $base_ver . ( file_exists( $js ) ? '.' . (string) filemtime( $js ) : '' );
 
 		wp_enqueue_style(
 			'ls-chat-font',
@@ -120,10 +154,25 @@ class LS_Chat {
 			array(),
 			null
 		);
-		wp_enqueue_style( 'ls-chat', $base . 'css/ls-chat.css', array( 'ls-chat-font' ), $ver );
-		wp_enqueue_script( 'ls-chat', $base . 'js/ls-chat.js', array(), $ver, true );
+		wp_enqueue_style( 'ls-chat', $base . 'css/ls-chat.css', array( 'ls-chat-font' ), $css_ver );
+		wp_enqueue_script(
+			'pusher-js',
+			'https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js',
+			array(),
+			'8.4.0',
+			true
+		);
+		wp_enqueue_script(
+			'laravel-echo',
+			'https://cdn.jsdelivr.net/npm/laravel-echo@1.19.0/dist/echo.iife.js',
+			array( 'pusher-js' ),
+			'1.19.0',
+			true
+		);
+		wp_enqueue_script( 'ls-chat', $base . 'js/ls-chat.js', array( 'laravel-echo' ), $js_ver, true );
 
-		$user = wp_get_current_user();
+		$user  = wp_get_current_user();
+		$title = self::widget_title();
 
 		wp_localize_script(
 			'ls-chat',
@@ -139,9 +188,11 @@ class LS_Chat {
 				'visitorName'   => $user && $user->exists() ? (string) $user->display_name : '',
 				'visitorEmail'  => $user && $user->exists() ? (string) $user->user_email : '',
 				'i18n'          => array(
-					'title'           => __( 'Chat with us', 'licensesender' ),
-					'agentTitle'      => __( 'Chat with us', 'licensesender' ),
-					'agentRole'       => __( 'Online · usually replies in minutes', 'licensesender' ),
+					'title'           => $title,
+					'agentTitle'      => __( 'AI Assistant', 'licensesender' ),
+					'agentRole'       => self::widget_subtitle( $user ),
+					'aiRole'          => __( 'Automated support · Online', 'licensesender' ),
+					'humanRole'       => __( 'Human support agent · Online', 'licensesender' ),
 					'placeholder'     => __( 'Type here and press enter…', 'licensesender' ),
 					'send'            => __( 'Send', 'licensesender' ),
 					'escalate'        => __( 'Talk to a human', 'licensesender' ),
@@ -154,19 +205,33 @@ class LS_Chat {
 					'emailPlaceholder'=> __( 'you@example.com', 'licensesender' ),
 					'start'           => __( 'Start chat', 'licensesender' ),
 					'error'           => __( 'Something went wrong. Please try again.', 'licensesender' ),
-					'escalated'       => __( 'A support ticket was created. Our team will follow up by email.', 'licensesender' ),
+					'escalated'       => __( 'Connecting you with a support agent. Please wait…', 'licensesender' ),
+					'waitingAgent'    => __( 'Waiting for an agent…', 'licensesender' ),
+					'agentJoined'     => __( 'An agent has joined the chat.', 'licensesender' ),
+					'ticketFallback'  => __( 'No agent was available. A support ticket was created — we will email you.', 'licensesender' ),
 					'closed'          => __( 'Chat ended. Thanks for reaching out!', 'licensesender' ),
+					'offline'         => __( 'Reconnecting… messages will sync when you are back online.', 'licensesender' ),
 					'emailRequired'   => __( 'Please enter your email to continue.', 'licensesender' ),
-					'online'          => __( 'Online · usually replies in minutes', 'licensesender' ),
+					'online'          => self::widget_subtitle( $user ),
 					'support'         => __( 'Customer support', 'licensesender' ),
 					'gateHelp'        => __( 'Tell us who you are, then start chatting with our assistant.', 'licensesender' ),
 					'today'           => __( 'Today', 'licensesender' ),
 					'you'             => __( 'You', 'licensesender' ),
-					'assistant'       => __( 'Assistant', 'licensesender' ),
+					'assistant'       => __( 'AI Assistant', 'licensesender' ),
 					'agent'           => __( 'Support', 'licensesender' ),
+					'system'          => __( 'System', 'licensesender' ),
 					'powered'         => __( 'Powered by LicenseSender', 'licensesender' ),
 					'defaultWelcome'  => __( 'Hi! How can we help you today?', 'licensesender' ),
-					'launcherLabel'   => __( 'Chat with us', 'licensesender' ),
+					'launcherLabel'   => $title,
+					'attach'          => __( 'Attach images', 'licensesender' ),
+					'onlyImages'      => __( 'Only image attachments are allowed (JPG, PNG, GIF, WebP).', 'licensesender' ),
+					/* translators: %s: file name */
+					'imageTooLarge'   => __( '%s is larger than 5 MB.', 'licensesender' ),
+					'maxImages'       => __( 'You can attach up to 5 images.', 'licensesender' ),
+					'remove'          => __( 'Remove', 'licensesender' ),
+					'isTyping'        => __( 'is typing', 'licensesender' ),
+					'aiTyping'        => __( 'AI Assistant is typing', 'licensesender' ),
+					'aiResumed'       => __( 'The AI assistant is back to help you.', 'licensesender' ),
 				),
 			)
 		);
@@ -199,8 +264,18 @@ class LS_Chat {
 			case 'ls_chat_poll':
 				self::ajax_poll();
 				break;
+			case 'ls_chat_typing':
+				self::ajax_typing();
+				break;
 			case 'ls_chat_escalate':
+			case 'ls_chat_handoff':
 				self::ajax_escalate();
+				break;
+			case 'ls_chat_broadcast_bootstrap':
+				self::ajax_broadcast_bootstrap();
+				break;
+			case 'ls_chat_broadcast_auth':
+				self::ajax_broadcast_auth();
 				break;
 			case 'ls_chat_close':
 				self::ajax_close();
@@ -217,12 +292,15 @@ class LS_Chat {
 		$existing = self::cookie_session();
 		if ( $existing['id'] && $existing['token'] ) {
 			$response = Licensesender_Api::chat_poll( $existing['id'], $existing['token'], 0 );
-			if ( ! empty( $response['success'] ) ) {
+			$resumed_session = is_array( $response['data']['session'] ?? null ) ? $response['data']['session'] : array();
+
+			// Only resume sessions that are still open; otherwise start fresh.
+			if ( ! empty( $response['success'] ) && ( $resumed_session['status'] ?? '' ) !== 'closed' ) {
 				wp_send_json_success(
 					array(
 						'session_id'    => (int) $existing['id'],
 						'resumed'       => true,
-						'session'       => $response['data']['session'] ?? array(),
+						'session'       => $resumed_session,
 						'messages'      => $response['data']['messages'] ?? array(),
 						'welcome'       => self::welcome_message(),
 					)
@@ -283,10 +361,50 @@ class LS_Chat {
 	protected static function ajax_send() {
 		$session = self::require_session_cookies();
 		$message = isset( $_POST['message'] ) ? trim( wp_unslash( (string) $_POST['message'] ) ) : '';
+		$files   = LS_Support::normalize_uploaded_files();
 
-		if ( $message === '' ) {
-			wp_send_json_error( array( 'message' => __( 'Message cannot be empty.', 'licensesender' ) ), 422 );
+		if ( $message === '' && $files === array() ) {
+			wp_send_json_error( array( 'message' => __( 'Enter a message or attach a file.', 'licensesender' ) ), 422 );
 		}
+
+		if ( count( $files ) > 5 ) {
+			wp_send_json_error( array( 'message' => __( 'You can attach up to 5 files.', 'licensesender' ) ), 422 );
+		}
+
+		$allowed_extensions = array( 'jpg', 'jpeg', 'png', 'gif', 'webp' );
+		foreach ( $files as $file ) {
+			if ( ! empty( $file['error'] ) ) {
+				wp_send_json_error( array( 'message' => __( 'The image could not be uploaded. Please try again.', 'licensesender' ) ), 422 );
+			}
+
+			if ( (int) ( $file['size'] ?? 0 ) > 5 * MB_IN_BYTES ) {
+				wp_send_json_error( array( 'message' => __( 'Each image must be 5 MB or smaller.', 'licensesender' ) ), 422 );
+			}
+
+			$extension = strtolower( pathinfo( (string) ( $file['name'] ?? '' ), PATHINFO_EXTENSION ) );
+			if ( ! in_array( $extension, $allowed_extensions, true ) ) {
+				wp_send_json_error( array( 'message' => __( 'Only image attachments are allowed (JPG, PNG, GIF, WebP).', 'licensesender' ) ), 422 );
+			}
+
+			// Verify the real content type, not just the extension.
+			$check = wp_check_filetype_and_ext(
+				(string) ( $file['tmp_name'] ?? '' ),
+				(string) ( $file['name'] ?? '' ),
+				array(
+					'jpg|jpeg' => 'image/jpeg',
+					'png'      => 'image/png',
+					'gif'      => 'image/gif',
+					'webp'     => 'image/webp',
+				)
+			);
+			if ( empty( $check['type'] ) ) {
+				wp_send_json_error( array( 'message' => __( 'Only image attachments are allowed (JPG, PNG, GIF, WebP).', 'licensesender' ) ), 422 );
+			}
+		}
+
+		$client_message_id = isset( $_POST['client_message_id'] )
+			? sanitize_text_field( wp_unslash( (string) $_POST['client_message_id'] ) )
+			: '';
 
 		$payload = array(
 			'message'       => $message,
@@ -294,7 +412,11 @@ class LS_Chat {
 			'visitor_email' => isset( $_POST['visitor_email'] ) ? sanitize_email( wp_unslash( (string) $_POST['visitor_email'] ) ) : '',
 		);
 
-		$response = Licensesender_Api::chat_send( $session['id'], $session['token'], $payload );
+		if ( $client_message_id !== '' ) {
+			$payload['client_message_id'] = substr( $client_message_id, 0, 64 );
+		}
+
+		$response = Licensesender_Api::chat_send( $session['id'], $session['token'], $payload, $files );
 
 		if ( empty( $response['success'] ) ) {
 			wp_send_json_error(
@@ -322,6 +444,29 @@ class LS_Chat {
 		wp_send_json_success( $response['data'] ?? array() );
 	}
 
+	protected static function ajax_typing() {
+		$session   = self::require_session_cookies();
+		$is_typing = ! empty( $_POST['is_typing'] ) && (string) $_POST['is_typing'] !== '0';
+
+		$response = Licensesender_Api::chat_typing(
+			$session['id'],
+			$session['token'],
+			array(
+				'is_typing'    => $is_typing ? 1 : 0,
+				'visitor_name' => isset( $_POST['visitor_name'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['visitor_name'] ) ) : '',
+			)
+		);
+
+		if ( empty( $response['success'] ) ) {
+			wp_send_json_error(
+				array( 'message' => $response['message'] ?? __( 'Unable to update typing state.', 'licensesender' ) ),
+				(int) ( $response['http_code'] ?? 400 )
+			);
+		}
+
+		wp_send_json_success( $response['data'] ?? array() );
+	}
+
 	protected static function ajax_escalate() {
 		$session = self::require_session_cookies();
 
@@ -337,20 +482,18 @@ class LS_Chat {
 			wp_send_json_error( array( 'message' => __( 'An email address is required to reach a human.', 'licensesender' ) ), 422 );
 		}
 
-		$response = Licensesender_Api::chat_escalate(
+		$response = Licensesender_Api::chat_handoff(
 			$session['id'],
 			$session['token'],
 			array(
 				'visitor_email' => $email,
 				'visitor_name'  => $name,
-				'subject'       => isset( $_POST['subject'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['subject'] ) ) : '',
-				'message'       => isset( $_POST['message'] ) ? sanitize_textarea_field( wp_unslash( (string) $_POST['message'] ) ) : '',
 			)
 		);
 
 		if ( empty( $response['success'] ) ) {
 			wp_send_json_error(
-				array( 'message' => $response['message'] ?? __( 'Unable to escalate chat.', 'licensesender' ) ),
+				array( 'message' => $response['message'] ?? __( 'Unable to request a human agent.', 'licensesender' ) ),
 				(int) ( $response['http_code'] ?? 400 )
 			);
 		}
@@ -358,16 +501,86 @@ class LS_Chat {
 		wp_send_json_success( $response['data'] ?? array() );
 	}
 
+	/**
+	 * Issue visitor broadcast bootstrap (Reverb config + short-lived credential).
+	 * API key never leaves WordPress.
+	 */
+	protected static function ajax_broadcast_bootstrap() {
+		$session = self::require_session_cookies();
+
+		$response = Licensesender_Api::chat_broadcast_credential( $session['id'], $session['token'] );
+
+		if ( empty( $response['success'] ) ) {
+			wp_send_json_error(
+				array( 'message' => $response['message'] ?? __( 'Realtime is unavailable.', 'licensesender' ) ),
+				(int) ( $response['http_code'] ?? 400 )
+			);
+		}
+
+		$data = is_array( $response['data'] ?? null ) ? $response['data'] : array();
+		$data['auth_endpoint'] = admin_url( 'admin-ajax.php' );
+		$data['auth_action']   = 'ls_chat_broadcast_auth';
+		$data['nonce']         = wp_create_nonce( 'ls_chat' );
+
+		wp_send_json_success( $data );
+	}
+
+	/**
+	 * Proxy Pusher/Reverb private channel auth for the visitor credential.
+	 */
+	protected static function ajax_broadcast_auth() {
+		$session = self::require_session_cookies();
+
+		$channel    = isset( $_POST['channel_name'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['channel_name'] ) ) : '';
+		$socket_id  = isset( $_POST['socket_id'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['socket_id'] ) ) : '';
+		$credential = isset( $_POST['credential'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['credential'] ) ) : '';
+
+		if ( $channel === '' || $socket_id === '' || $credential === '' ) {
+			wp_send_json_error( array( 'message' => __( 'Invalid broadcast auth request.', 'licensesender' ) ), 422 );
+		}
+
+		$response = Licensesender_Api::chat_broadcast_auth(
+			$session['token'],
+			array(
+				'channel_name' => $channel,
+				'socket_id'    => $socket_id,
+				'credential'   => $credential,
+				'session_id'   => $session['id'],
+			)
+		);
+
+		if ( empty( $response['success'] ) ) {
+			wp_send_json_error(
+				array( 'message' => $response['message'] ?? __( 'Broadcast authorization failed.', 'licensesender' ) ),
+				(int) ( $response['http_code'] ?? 403 )
+			);
+		}
+
+		$auth = $response['data']['auth'] ?? ( $response['auth'] ?? '' );
+		if ( $auth === '' ) {
+			wp_send_json_error( array( 'message' => __( 'Broadcast authorization failed.', 'licensesender' ) ), 500 );
+		}
+
+		// Echo / Pusher client expects a raw { auth: "..." } payload.
+		wp_send_json( array( 'auth' => $auth ) );
+	}
+
 	protected static function ajax_close() {
 		$session = self::require_session_cookies();
 
-		$response = Licensesender_Api::chat_close( $session['id'], $session['token'] );
-		self::clear_cookies();
+		$response  = Licensesender_Api::chat_close( $session['id'], $session['token'] );
+		$http_code = (int) ( $response['http_code'] ?? 400 );
+
+		// Keep cookies on transient failures so the visitor can retry;
+		// clear them when the close succeeded or the session is already gone/invalid.
+		if ( ! empty( $response['success'] ) || in_array( $http_code, array( 401, 403, 404, 410, 422 ), true ) ) {
+			self::clear_cookies();
+		}
 
 		if ( empty( $response['success'] ) ) {
 			wp_send_json_error(
 				array( 'message' => $response['message'] ?? __( 'Unable to close chat.', 'licensesender' ) ),
-				(int) ( $response['http_code'] ?? 400 )
+				$http_code
 			);
 		}
 

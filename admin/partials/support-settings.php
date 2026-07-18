@@ -64,6 +64,17 @@ $pages = LS_Admin_Service::get_page_choices();
 				<p class="description"><?php esc_html_e( 'Page containing [ls_support_manage]', 'licensesender' ); ?></p>
 			</td>
 		</tr>
+		<tr>
+			<th scope="row"><?php esc_html_e( 'Login / register via My Account', 'licensesender' ); ?></th>
+			<td>
+				<input type="hidden" name="lship_support_auth_my_account" value="no">
+				<label>
+					<input type="checkbox" name="lship_support_auth_my_account" value="yes" <?php checked( get_option( 'lship_support_auth_my_account', 'yes' ), 'yes' ); ?>>
+					<?php esc_html_e( 'Send customers to WooCommerce My Account to log in or register (recommended when using captcha plugins).', 'licensesender' ); ?>
+				</label>
+				<p class="description"><?php esc_html_e( 'Turn this off only if you want login/register forms embedded on the support page.', 'licensesender' ); ?></p>
+			</td>
+		</tr>
 	</table>
 
 	<?php submit_button( __( 'Save support settings', 'licensesender' ) ); ?>

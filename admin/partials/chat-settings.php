@@ -63,6 +63,13 @@ defined( 'ABSPATH' ) || exit;
 				</td>
 			</tr>
 			<tr>
+				<th scope="row"><label for="lship_chat_title"><?php esc_html_e( 'Widget title', 'licensesender' ); ?></label></th>
+				<td>
+					<input type="text" name="lship_chat_title" id="lship_chat_title" class="regular-text" value="<?php echo esc_attr( (string) get_option( 'lship_chat_title', '' ) ); ?>" placeholder="<?php esc_attr_e( 'Chat with us', 'licensesender' ); ?>">
+					<p class="description"><?php esc_html_e( 'Header shown before a chat starts. During chat, it changes to “AI Assistant” or the joined human agent’s name.', 'licensesender' ); ?></p>
+				</td>
+			</tr>
+			<tr>
 				<th scope="row"><label for="lship_chat_welcome"><?php esc_html_e( 'Welcome message', 'licensesender' ); ?></label></th>
 				<td>
 					<textarea name="lship_chat_welcome" id="lship_chat_welcome" rows="3" class="large-text"><?php echo esc_textarea( (string) get_option( 'lship_chat_welcome', '' ) ); ?></textarea>

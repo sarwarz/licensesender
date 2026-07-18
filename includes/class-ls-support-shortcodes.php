@@ -665,6 +665,14 @@ class LS_Support_Shortcodes {
 		wp_enqueue_script( 'ls-support' );
 	}
 
+	/**
+	 * Whether support auth should use WooCommerce My Account (captcha-safe).
+	 * Default: yes. Set option to "no" to embed login/register forms on the support page.
+	 */
+	private static function use_my_account_auth() {
+		return 'yes' === get_option( 'lship_support_auth_my_account', 'yes' );
+	}
+
 	private static function render_auth_gate( $title, $lead ) {
 		$redirect_url = get_permalink();
 		if ( ! $redirect_url ) {
@@ -678,7 +686,52 @@ class LS_Support_Shortcodes {
 		if ( function_exists( 'woocommerce_output_all_notices' ) ) {
 			woocommerce_output_all_notices();
 		}
-		self::render_wc_auth_section( $redirect_url );
+
+		if ( self::use_my_account_auth() ) {
+			self::render_my_account_auth_cta( $redirect_url );
+		} else {
+			self::render_wc_auth_section( $redirect_url );
+		}
+
+		echo '</div>';
+		echo '</div>';
+	}
+
+	/**
+	 * Send visitors to WooCommerce My Account so site captcha plugins work.
+	 */
+	private static function render_my_account_auth_cta( $redirect_url ) {
+		if ( ! function_exists( 'wc_get_page_permalink' ) ) {
+			echo '<p>' . esc_html__( 'WooCommerce is required for customer login.', 'licensesender' ) . '</p>';
+			return;
+		}
+
+		$account_url = wc_get_page_permalink( 'myaccount' );
+		if ( ! $account_url ) {
+			echo '<p>' . esc_html__( 'Please set a WooCommerce My Account page, then try again.', 'licensesender' ) . '</p>';
+			return;
+		}
+
+		$login_url = add_query_arg(
+			array(
+				'ls_support_redirect' => $redirect_url,
+			),
+			$account_url
+		);
+
+		$register_url = $login_url;
+		// Many themes/plugins open the register panel with ?action=register.
+		if ( 'yes' === get_option( 'woocommerce_enable_myaccount_registration' ) ) {
+			$register_url = add_query_arg( 'action', 'register', $login_url );
+		}
+
+		echo '<div class="ls-support-auth-cta">';
+		echo '<p class="ls-support-auth-cta-help">' . esc_html__( 'You will sign in on the store account page (where captcha and store security apply), then return here.', 'licensesender' ) . '</p>';
+		echo '<div class="ls-support-auth-cta-actions">';
+		echo '<a class="button ls-support-btn-primary" href="' . esc_url( $login_url ) . '">' . esc_html__( 'Log in', 'licensesender' ) . '</a>';
+		if ( 'yes' === get_option( 'woocommerce_enable_myaccount_registration' ) ) {
+			echo '<a class="button ls-support-btn-secondary" href="' . esc_url( $register_url ) . '">' . esc_html__( 'Create account', 'licensesender' ) . '</a>';
+		}
 		echo '</div>';
 		echo '</div>';
 	}
@@ -711,6 +764,33 @@ class LS_Support_Shortcodes {
 
 		self::$auth_redirect_url   = '';
 		self::$support_auth_active = false;
+	}
+
+	/**
+	 * Resolve a safe support-page return URL from the My Account query string.
+	 */
+	private static function get_support_redirect_from_request() {
+		if ( empty( $_REQUEST['ls_support_redirect'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return '';
+		}
+
+		$raw = wp_unslash( $_REQUEST['ls_support_redirect'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended, WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		if ( ! is_string( $raw ) || $raw === '' ) {
+			return '';
+		}
+
+		// Tolerate a single extra encode from older links.
+		if ( str_contains( $raw, '%' ) && ! str_contains( $raw, '://' ) ) {
+			$raw = rawurldecode( $raw );
+		}
+
+		$raw = esc_url_raw( $raw );
+		if ( $raw === '' ) {
+			return '';
+		}
+
+		$validated = wp_validate_redirect( $raw, false );
+		return $validated ? $validated : '';
 	}
 
 	private static function load_support_template( $template ) {
@@ -747,20 +827,32 @@ class LS_Support_Shortcodes {
 	}
 
 	public static function output_auth_redirect_field() {
-		if ( self::$auth_redirect_url === '' ) {
+		$url = self::$auth_redirect_url;
+		if ( $url === '' ) {
+			$url = self::get_support_redirect_from_request();
+		}
+		if ( $url === '' ) {
 			return;
 		}
-		echo '<input type="hidden" name="redirect" value="' . esc_url( self::$auth_redirect_url ) . '" />';
+		echo '<input type="hidden" name="redirect" value="' . esc_url( $url ) . '" />';
+		echo '<input type="hidden" name="ls_support_redirect" value="' . esc_attr( $url ) . '" />';
 	}
 
 	public static function filter_auth_redirect( $redirect, $user = null ) {
 		unset( $user );
-		if ( ! empty( $_POST['redirect'] ) ) {
-			$target = wp_validate_redirect( wp_unslash( $_POST['redirect'] ), $redirect );
+
+		if ( ! empty( $_POST['redirect'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+			$target = wp_validate_redirect( wp_unslash( $_POST['redirect'] ), false ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPress.Security.NonceVerification.Missing
 			if ( $target ) {
 				return $target;
 			}
 		}
+
+		$from_query = self::get_support_redirect_from_request();
+		if ( $from_query ) {
+			return $from_query;
+		}
+
 		return $redirect;
 	}
 
