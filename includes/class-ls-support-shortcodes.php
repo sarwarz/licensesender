@@ -331,8 +331,37 @@ class LS_Support_Shortcodes {
 			</div>
 		</div>
 		<?php
+		self::render_boot_watchdog();
 
 		return ob_get_clean();
+	}
+
+	/**
+	 * Dependency-free failsafe: if the widget script never boots (blocked by
+	 * an optimizer, a JS error from another plugin, missing jQuery, etc.),
+	 * replace the endless loading spinner with a readable message so the
+	 * customer is never stuck on "Loading…" forever.
+	 */
+	private static function render_boot_watchdog() {
+		$message = esc_js( __( 'The support widget could not load on this page. Please reload the page or try again later.', 'licensesender' ) );
+		$reload  = esc_js( __( 'Reload page', 'licensesender' ) );
+		?>
+		<script>
+		(function () {
+			setTimeout(function () {
+				if (window.LSSupportBooted) {
+					return;
+				}
+				var nodes = document.querySelectorAll('.ls-support-wrap .ls-support-empty-state.is-loading');
+				for (var i = 0; i < nodes.length; i++) {
+					nodes[i].className = 'ls-support-empty-state';
+					nodes[i].innerHTML = '<p><?php echo $message; // phpcs:ignore WordPress.Security.EscapeOutput ?></p>' +
+						'<p><a href="javascript:window.location.reload()"><?php echo $reload; // phpcs:ignore WordPress.Security.EscapeOutput ?></a></p>';
+				}
+			}, 10000);
+		})();
+		</script>
+		<?php
 	}
 
 	private static function render_ticket_view( $ticket_number ) {
@@ -398,6 +427,7 @@ class LS_Support_Shortcodes {
 			</div>
 		</div>
 		<?php
+		self::render_boot_watchdog();
 	}
 
 	public static function ajax_create_ticket() {
@@ -650,14 +680,36 @@ class LS_Support_Shortcodes {
 	}
 
 	private static function enqueue_assets( $with_editor = false ) {
+		global $wp_scripts;
+
 		wp_enqueue_style( 'ls-support' );
+
+		// Reuse an already-registered Select2 (theme or WooCommerce selectWoo)
+		// instead of loading a second copy, which breaks dropdowns on some
+		// sites. Fall back to the bundled copy only when none exists.
+		$select2_handle = '';
+		foreach ( array( 'selectWoo', 'select2', 'ls-select2' ) as $candidate ) {
+			if ( wp_script_is( $candidate, 'registered' ) ) {
+				$select2_handle = $candidate;
+				break;
+			}
+		}
+
+		if ( $select2_handle !== '' ) {
+			if ( 'ls-select2' === $select2_handle ) {
+				wp_enqueue_style( 'ls-select2' );
+			}
+			wp_enqueue_script( $select2_handle );
+			if ( isset( $wp_scripts->registered['ls-support'] ) && ! in_array( $select2_handle, $wp_scripts->registered['ls-support']->deps, true ) ) {
+				$wp_scripts->registered['ls-support']->deps[] = $select2_handle;
+			}
+		}
 
 		if ( $with_editor ) {
 			wp_enqueue_editor();
 			wp_enqueue_style( 'editor-buttons' );
 
-			global $wp_scripts;
-			if ( isset( $wp_scripts->registered['ls-support'] ) ) {
+			if ( isset( $wp_scripts->registered['ls-support'] ) && ! in_array( 'editor', $wp_scripts->registered['ls-support']->deps, true ) ) {
 				$wp_scripts->registered['ls-support']->deps[] = 'editor';
 			}
 		}

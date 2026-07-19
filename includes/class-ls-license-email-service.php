@@ -390,24 +390,27 @@ class LS_License_Email_Service {
 	}
 
 	private static function dispatch_mail( string $to, string $subject, string $html, string $text, array $headers ): bool {
-		$boundary = 'ls_' . wp_generate_password( 16, false );
-		$body     = "--{$boundary}\r\n";
-		$body    .= "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
-		$body    .= $text . "\r\n\r\n";
-		$body    .= "--{$boundary}\r\n";
-		$body    .= "Content-Type: text/html; charset=UTF-8\r\n\r\n";
-		$body    .= $html . "\r\n\r\n";
-		$body    .= "--{$boundary}--";
-
+		// Do not hand-build multipart MIME. WooCommerce/wp_mail often force
+		// Content-Type: text/html, which makes manual boundaries appear as text.
+		// Send HTML and attach plain text via PHPMailer AltBody instead.
 		$mail_headers   = $headers;
-		$mail_headers[] = 'MIME-Version: 1.0';
-		$mail_headers[] = 'Content-Type: multipart/alternative; boundary="' . $boundary . '"';
+		$mail_headers[] = 'Content-Type: text/html; charset=UTF-8';
 
-		if ( function_exists( 'wc_mail' ) ) {
-			return (bool) wc_mail( $to, $subject, $body, $mail_headers );
-		}
+		$plain = is_string( $text ) ? $text : '';
+		$set_alt_body = static function ( $phpmailer ) use ( $plain ) {
+			if ( $plain === '' || ! is_object( $phpmailer ) ) {
+				return;
+			}
+			$phpmailer->AltBody = $plain;
+		};
 
-		return (bool) wp_mail( $to, $subject, $body, $mail_headers );
+		add_action( 'phpmailer_init', $set_alt_body, 20 );
+		$sent = function_exists( 'wc_mail' )
+			? (bool) wc_mail( $to, $subject, $html, $mail_headers )
+			: (bool) wp_mail( $to, $subject, $html, $mail_headers );
+		remove_action( 'phpmailer_init', $set_alt_body, 20 );
+
+		return $sent;
 	}
 
 	private static function mark_order_email_sent( int $order_id ): void {

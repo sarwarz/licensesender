@@ -100,44 +100,74 @@
   }
 
   function postJson(action, data) {
-    return $.post(cfg.ajaxUrl, $.extend({ action: action, nonce: cfg.nonce }, data || {}));
-  }
-
-  function canSelect2() {
-    return typeof $.fn.select2 === 'function';
-  }
-
-  function initSupportSelect2($el) {
-    if (!$el.length || !canSelect2()) {
-      return;
-    }
-
-    if ($el.hasClass('select2-hidden-accessible')) {
-      $el.select2('destroy');
-    }
-
-    // Append dropdown to <body> so theme overflow/transform on cards
-    // cannot detach or clip the menu (common cross-theme Select2 bug).
-    $el.select2({
-      width: '100%',
-      dropdownParent: $(document.body),
-      dropdownCssClass: 'ls-support-select2-dropdown',
-      containerCssClass: 'ls-support-select2-container',
-      placeholder: $el.data('placeholder') || '',
-      // Clear "x" only on optional pickers that have an empty placeholder option.
-      allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
-      minimumResultsForSearch: $el.is('#ls-support-order')
-        ? 0
-        : $el.is('#ls-support-license-key')
-          ? 8
-          : Infinity,
+    return $.ajax({
+      url: cfg.ajaxUrl,
+      method: 'POST',
+      data: $.extend({ action: action, nonce: cfg.nonce }, data || {}),
+      // Never leave the UI spinning forever on a hung request.
+      timeout: 30000,
     });
   }
 
-  function setSelectHtml($el, html, disabled) {
-    if ($el.hasClass('select2-hidden-accessible')) {
-      $el.select2('destroy');
+  // Some sites ship WooCommerce's selectWoo instead of select2.
+  function select2FnName() {
+    if (typeof $.fn.select2 === 'function') {
+      return 'select2';
     }
+    if (typeof $.fn.selectWoo === 'function') {
+      return 'selectWoo';
+    }
+    return '';
+  }
+
+  function canSelect2() {
+    return select2FnName() !== '';
+  }
+
+  function destroySelect2($el) {
+    const fn = select2FnName();
+    if (fn && $el.hasClass('select2-hidden-accessible')) {
+      try {
+        $el[fn]('destroy');
+      } catch (e) {
+        // A theme may have initialized this element with a different
+        // select2 build; never let destroy() break the whole widget.
+      }
+    }
+  }
+
+  function initSupportSelect2($el) {
+    const fn = select2FnName();
+    if (!$el.length || !fn) {
+      return;
+    }
+
+    destroySelect2($el);
+
+    // Append dropdown to <body> so theme overflow/transform on cards
+    // cannot detach or clip the menu (common cross-theme Select2 bug).
+    try {
+      $el[fn]({
+        width: '100%',
+        dropdownParent: $(document.body),
+        dropdownCssClass: 'ls-support-select2-dropdown',
+        containerCssClass: 'ls-support-select2-container',
+        placeholder: $el.data('placeholder') || '',
+        // Clear "x" only on optional pickers that have an empty placeholder option.
+        allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
+        minimumResultsForSearch: $el.is('#ls-support-order')
+          ? 0
+          : $el.is('#ls-support-license-key')
+            ? 8
+            : Infinity,
+      });
+    } catch (e) {
+      // Fall back to the styled native <select> if select2 blows up.
+    }
+  }
+
+  function setSelectHtml($el, html, disabled) {
+    destroySelect2($el);
     $el.html(html).prop('disabled', !!disabled);
     if ($el.hasClass('ls-support-select2')) {
       initSupportSelect2($el);
@@ -860,6 +890,8 @@
   }
 
   $(function () {
+    // Signals the inline no-boot watchdog that the widget script is alive.
+    window.LSSupportBooted = true;
     initOpenForm();
     initManage();
     initTicketView();

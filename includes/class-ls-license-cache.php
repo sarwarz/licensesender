@@ -108,7 +108,11 @@ class LS_License_Cache {
 	}
 
 	/**
-	 * Insert or update a cache row (dedupe by remote id or order+product+key).
+	 * Insert or update a cache row.
+	 *
+	 * Identity is the SaaS remote_license_id so quantity N keeps N rows even when
+	 * multiple inventory units share the same key string. Key-value matching is only
+	 * used as a legacy fallback for rows that still have no remote id.
 	 *
 	 * @param array<string, mixed> $data Row data.
 	 * @return int Local row ID or 0.
@@ -130,18 +134,21 @@ class LS_License_Cache {
 		$existing_id = 0;
 
 		if ( $remote_id > 0 ) {
+			// Prefer remote ID — never collapse different remote licenses by key text.
 			$existing_id = (int) $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT id FROM {$table} WHERE remote_license_id = %d LIMIT 1",
 					$remote_id
 				)
 			);
-		}
-
-		if ( ! $existing_id && $product_id > 0 ) {
+		} elseif ( $product_id > 0 ) {
+			// Legacy rows without a remote ID: only rematch unlinked rows.
 			$existing_id = (int) $wpdb->get_var(
 				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE order_id = %d AND product_id = %d AND key_value = %s LIMIT 1",
+					"SELECT id FROM {$table}
+					WHERE order_id = %d AND product_id = %d AND key_value = %s
+					AND (remote_license_id IS NULL OR remote_license_id = 0)
+					LIMIT 1",
 					$order_id,
 					$product_id,
 					$key_value
@@ -243,16 +250,7 @@ class LS_License_Cache {
 			return false;
 		}
 
-		// Drop any other rows that already hold the replacement key (duplicates).
-		$wpdb->query(
-			$wpdb->prepare(
-				"DELETE FROM {$table} WHERE order_id = %d AND key_value = %s AND id <> %d",
-				$order_id,
-				$replacement_key,
-				(int) $row->id
-			)
-		);
-
+		// Keep other quantity slots even when they share the same key string.
 		delete_transient( self::SYNC_TRANSIENT_PREFIX . $order_id );
 		self::prune_excess_keys_for_order( $order_id );
 
@@ -574,8 +572,13 @@ class LS_License_Cache {
 			}
 		}
 
+		// Legacy fallback: only bind unlinked rows so identical key strings
+		// belonging to different remote licenses stay as separate quantity slots.
 		foreach ( $local_rows as $row ) {
 			if ( in_array( (int) $row->id, $matched_ids, true ) ) {
+				continue;
+			}
+			if ( (int) ( $row->remote_license_id ?? 0 ) !== 0 ) {
 				continue;
 			}
 			if ( (string) $row->key_value === $key_value ) {

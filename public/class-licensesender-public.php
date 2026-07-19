@@ -179,17 +179,20 @@ class Licensesender_Public {
 			true
 		);
 
+		// Select2 is intentionally NOT a hard dependency: if it is missing or
+		// conflicts with a theme copy, the widget must still boot and fall
+		// back to styled native <select> controls.
 		wp_register_style(
 			'ls-support',
 			plugin_dir_url( __FILE__ ) . 'css/ls-support.css',
-			array( 'ls-select2' ),
+			array(),
 			$this->version
 		);
 
 		wp_register_script(
 			'ls-support',
 			plugin_dir_url( __FILE__ ) . 'js/ls-support.js',
-			array( 'jquery', 'ls-select2' ),
+			array( 'jquery' ),
 			$this->version,
 			true
 		);
