@@ -51,8 +51,7 @@ class LS_Support_Shortcodes {
 			return ob_get_clean();
 		}
 
-		$user   = wp_get_current_user();
-		$orders = LS_Support::get_customer_orders( $user );
+		$user = wp_get_current_user();
 
 		?>
 		<div class="ls-support-wrap alignwide ls-support-open-wrap" id="ls-support-open">
@@ -116,23 +115,22 @@ class LS_Support_Shortcodes {
 
 							<div class="ls-support-grid">
 								<div class="ls-support-field">
-									<label for="ls-support-order"><?php esc_html_e( 'Related order', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></label>
-									<div class="ls-support-select-wrap">
-										<select id="ls-support-order" name="order_id" class="ls-support-select ls-support-select2" data-placeholder="<?php esc_attr_e( 'Select an order', 'licensesender' ); ?>">
-											<option value=""><?php esc_html_e( 'Select an order', 'licensesender' ); ?></option>
-											<?php foreach ( $orders as $order ) : ?>
-												<option value="<?php echo esc_attr( (string) $order['id'] ); ?>"><?php echo esc_html( $order['label'] ); ?></option>
-											<?php endforeach; ?>
-										</select>
-									</div>
+									<label for="ls-support-order"><?php esc_html_e( 'Order number', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></label>
+									<input type="text"
+										id="ls-support-order"
+										name="order_id"
+										maxlength="255"
+										placeholder="<?php esc_attr_e( 'e.g. 1042 or #1042', 'licensesender' ); ?>"
+										autocomplete="off" />
 								</div>
 								<div class="ls-support-field">
 									<label for="ls-support-license-key"><?php esc_html_e( 'License key', 'licensesender' ); ?> <span class="ls-support-optional"><?php esc_html_e( 'optional', 'licensesender' ); ?></span></label>
-									<div class="ls-support-select-wrap">
-										<select id="ls-support-license-key" name="license_key" class="ls-support-select ls-support-select2" data-placeholder="<?php esc_attr_e( 'Select order first', 'licensesender' ); ?>" disabled>
-											<option value=""><?php esc_html_e( 'Select order first', 'licensesender' ); ?></option>
-										</select>
-									</div>
+									<input type="text"
+										id="ls-support-license-key"
+										name="license_key"
+										maxlength="255"
+										placeholder="<?php esc_attr_e( 'Paste your license key', 'licensesender' ); ?>"
+										autocomplete="off" />
 								</div>
 							</div>
 						</section>
@@ -453,17 +451,14 @@ class LS_Support_Shortcodes {
 		$category = LS_Support::sanitize_category( wp_unslash( $_POST['category'] ?? 'general' ) );
 		$priority = LS_Support::sanitize_priority( wp_unslash( $_POST['priority'] ?? 'normal' ) );
 
-		$order_id = absint( $_POST['order_id'] ?? 0 );
-		if ( $order_id ) {
-			$order = wc_get_order( $order_id );
-			if ( ! $order || (int) $order->get_user_id() !== (int) $user->ID ) {
-				wp_send_json_error( array( 'message' => __( 'Invalid order selected.', 'licensesender' ) ), 400 );
-			}
+		$order_id = sanitize_text_field( wp_unslash( $_POST['order_id'] ?? '' ) );
+		if ( strlen( $order_id ) > 255 ) {
+			$order_id = substr( $order_id, 0, 255 );
 		}
 
-		$license_key = LS_Support::validate_license_key_for_order( $user->ID, $order_id, wp_unslash( $_POST['license_key'] ?? '' ) );
-		if ( is_wp_error( $license_key ) ) {
-			wp_send_json_error( array( 'message' => $license_key->get_error_message() ), 400 );
+		$license_key = sanitize_text_field( wp_unslash( $_POST['license_key'] ?? '' ) );
+		if ( strlen( $license_key ) > 255 ) {
+			$license_key = substr( $license_key, 0, 255 );
 		}
 
 		$result = Licensesender_Api::create_support_ticket(
@@ -474,7 +469,7 @@ class LS_Support_Shortcodes {
 				'message'        => $message,
 				'category'       => $category,
 				'priority'       => $priority,
-				'order_id'       => $order_id ? (string) $order_id : '',
+				'order_id'       => $order_id,
 				'license_key'    => $license_key,
 			),
 			is_array( $validated ) ? $validated : array()
@@ -504,7 +499,7 @@ class LS_Support_Shortcodes {
 				'status'         => (string) ( $ticket['status'] ?? 'open' ),
 				'category'       => $category,
 				'priority'       => $priority,
-				'order_id'       => $order_id ? (string) $order_id : LS_Support::extract_ticket_order_id( $ticket ),
+				'order_id'       => $order_id !== '' ? $order_id : LS_Support::extract_ticket_order_id( $ticket ),
 				'customer_email' => $user->user_email,
 				'created_at'     => LS_Support::extract_ticket_created_at( $ticket ) ?: current_time( 'mysql' ),
 				'updated_at'     => LS_Support::extract_ticket_updated_at( $ticket ) ?: current_time( 'mysql' ),

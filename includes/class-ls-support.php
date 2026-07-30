@@ -263,30 +263,19 @@ class LS_Support {
 
 	/**
 	 * @param int    $user_id User ID.
-	 * @param int    $order_id Order ID.
+	 * @param int    $order_id Order ID (kept for backwards compatibility; unused for free-text keys).
 	 * @param string $license_key License key value.
 	 * @return string|WP_Error
 	 */
 	public static function validate_license_key_for_order( $user_id, $order_id, $license_key ) {
-		$user_id     = (int) $user_id;
-		$order_id    = (int) $order_id;
+		unset( $user_id, $order_id );
+
 		$license_key = sanitize_text_field( (string) $license_key );
-
-		if ( $license_key === '' ) {
-			return '';
+		if ( strlen( $license_key ) > 255 ) {
+			$license_key = substr( $license_key, 0, 255 );
 		}
 
-		if ( ! $order_id ) {
-			return new WP_Error( 'invalid_license_key', __( 'Select an order before choosing a license key.', 'licensesender' ) );
-		}
-
-		foreach ( self::get_order_license_keys( $user_id, $order_id ) as $item ) {
-			if ( hash_equals( (string) ( $item['key'] ?? '' ), $license_key ) ) {
-				return $license_key;
-			}
-		}
-
-		return new WP_Error( 'invalid_license_key', __( 'Invalid license key for the selected order.', 'licensesender' ) );
+		return $license_key;
 	}
 
 	/**

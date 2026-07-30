@@ -153,13 +153,8 @@
         dropdownCssClass: 'ls-support-select2-dropdown',
         containerCssClass: 'ls-support-select2-container',
         placeholder: $el.data('placeholder') || '',
-        // Clear "x" only on optional pickers that have an empty placeholder option.
-        allowClear: $el.is('#ls-support-order, #ls-support-license-key'),
-        minimumResultsForSearch: $el.is('#ls-support-order')
-          ? 0
-          : $el.is('#ls-support-license-key')
-            ? 8
-            : Infinity,
+        allowClear: false,
+        minimumResultsForSearch: Infinity,
       });
     } catch (e) {
       // Fall back to the styled native <select> if select2 blows up.
@@ -181,8 +176,6 @@
     }
 
     const $message = $form.find('.ls-support-form-message');
-    const $order = $('#ls-support-order');
-    const $key = $('#ls-support-license-key');
     const defaultAttachLabel = cfg.i18n.noFilesSelected || 'No files selected';
 
     $form.find('select.ls-support-select2').each(function () {
@@ -199,40 +192,6 @@
         return file.name;
       }).join(', ');
       $form.find('.ls-support-attach-names').text(names || defaultAttachLabel);
-    });
-
-    $order.on('change', function () {
-      const orderId = $(this).val();
-      setSelectHtml($key, '<option value="">' + cfg.i18n.loadingKeys + '</option>', true);
-
-      if (!orderId) {
-        setSelectHtml($key, '<option value="">' + cfg.i18n.selectOrderFirst + '</option>', true);
-        return;
-      }
-
-      postJson('ls_support_order_keys', { order_id: orderId })
-        .done(function (res) {
-          if (!res.success) {
-            setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
-            return;
-          }
-
-          const keys = res.data.keys || [];
-          if (!keys.length) {
-            setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
-            return;
-          }
-
-          let html = '<option value="">' + cfg.i18n.selectKey + '</option>';
-          keys.forEach(function (item) {
-            const label = item.sku ? item.key + ' (' + item.sku + ')' : item.key;
-            html += '<option value="' + escapeHtml(item.key) + '">' + escapeHtml(label) + '</option>';
-          });
-          setSelectHtml($key, html, false);
-        })
-        .fail(function () {
-          setSelectHtml($key, '<option value="">' + cfg.i18n.noKeys + '</option>', true);
-        });
     });
 
     $form.on('submit', function (event) {
