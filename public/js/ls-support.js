@@ -391,21 +391,30 @@
     let html = '<ul class="ls-support-attachments">';
     attachments.forEach(function (file) {
       const name = file.name || cfg.i18n.attachmentFallback || 'Attachment';
-      const url = file.download_url || file.url || '';
-      const isImage = !!file.is_image || String(file.mime || '').indexOf('image/') === 0;
+      const downloadUrl = file.download_url || file.url || '';
+      const previewUrl = file.url || (
+        downloadUrl
+          ? (downloadUrl + (downloadUrl.indexOf('?') >= 0 ? '&' : '?') + 'inline=1')
+          : ''
+      );
+      const mime = String(file.mime || '');
+      const isImage = !!file.is_image
+        || mime.indexOf('image/') === 0
+        || /\.(jpe?g|png|gif|webp|bmp)$/i.test(name);
+      const isPdf = mime === 'application/pdf' || /\.pdf$/i.test(name);
       const sizeLabel = formatFileSize(file.size);
 
-      html += '<li class="ls-support-attachment' + (isImage ? ' is-image' : '') + '">';
-      if (isImage && url) {
-        html += '<a class="ls-support-attachment-thumb" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">';
-        html += '<img src="' + escapeHtml(url) + '" alt="' + escapeHtml(name) + '" loading="lazy" />';
+      html += '<li class="ls-support-attachment' + (isImage ? ' is-image' : '') + (isPdf ? ' is-pdf' : '') + '">';
+      if (isImage && previewUrl) {
+        html += '<a class="ls-support-attachment-thumb" href="' + escapeHtml(previewUrl) + '" target="_blank" rel="noopener noreferrer">';
+        html += '<img src="' + escapeHtml(previewUrl) + '" alt="' + escapeHtml(name) + '" loading="lazy" />';
         html += '</a>';
       } else {
         html += '<span class="ls-support-attachment-icon" aria-hidden="true">📎</span>';
       }
       html += '<div class="ls-support-attachment-meta">';
-      if (url) {
-        html += '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
+      if (downloadUrl || previewUrl) {
+        html += '<a href="' + escapeHtml(downloadUrl || previewUrl) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(name) + '</a>';
       } else {
         html += '<span>' + escapeHtml(name) + '</span>';
       }

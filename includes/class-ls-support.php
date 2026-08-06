@@ -147,13 +147,24 @@ class LS_Support {
 				}
 
 				$mime = (string) ( $attachment['mime'] ?? '' );
+				$name = (string) ( $attachment['name'] ?? $attachment['original_name'] ?? __( 'Attachment', 'licensesender' ) );
+				$is_image = ! empty( $attachment['is_image'] )
+					|| str_starts_with( $mime, 'image/' )
+					|| (bool) preg_match( '/\.(jpe?g|png|gif|webp|bmp)$/i', $name );
+				$download_url = (string) ( $attachment['download_url'] ?? '' );
+				$view_url     = (string) ( $attachment['url'] ?? '' );
+				if ( $view_url === '' && $download_url !== '' ) {
+					$view_url = $download_url . ( str_contains( $download_url, '?' ) ? '&' : '?' ) . 'inline=1';
+				}
+
 				$normalized_attachments[] = array(
 					'id'           => (int) ( $attachment['id'] ?? 0 ),
-					'name'         => (string) ( $attachment['name'] ?? $attachment['original_name'] ?? __( 'Attachment', 'licensesender' ) ),
+					'name'         => $name,
 					'mime'         => $mime,
 					'size'         => (int) ( $attachment['size'] ?? 0 ),
-					'is_image'     => ! empty( $attachment['is_image'] ) || str_starts_with( $mime, 'image/' ),
-					'download_url' => (string) ( $attachment['download_url'] ?? $attachment['url'] ?? '' ),
+					'is_image'     => $is_image,
+					'url'          => $view_url !== '' ? $view_url : $download_url,
+					'download_url' => $download_url !== '' ? $download_url : $view_url,
 				);
 			}
 			$message['attachments'] = $normalized_attachments;
