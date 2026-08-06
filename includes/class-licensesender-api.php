@@ -984,6 +984,9 @@ class Licensesender_Api {
     /**
      * Build a multipart/form-data body for support uploads.
      *
+     * Prefer CURLFile via request_multipart_post(); this string builder is only a
+     * last-resort fallback and can truncate binary PNG/PDF data at null bytes.
+     *
      * @param array<string, mixed> $fields Form fields.
      * @param array<int, array>    $files  Uploaded files.
      * @return array{body:string,boundary:string}
@@ -1002,7 +1005,7 @@ class Licensesender_Api {
         }
 
         foreach ( $files as $file ) {
-            if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+            if ( empty( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
                 continue;
             }
 
@@ -1011,8 +1014,11 @@ class Licensesender_Api {
             if ( $filename === '' ) {
                 $filename = 'attachment';
             }
-            $type     = ! empty( $file['type'] ) ? (string) $file['type'] : 'application/octet-stream';
-            $content  = file_get_contents( $file['tmp_name'] );
+            $type    = ! empty( $file['type'] ) ? (string) $file['type'] : 'application/octet-stream';
+            $content = file_get_contents( $file['tmp_name'] );
+            if ( $content === false ) {
+                continue;
+            }
 
             $payload .= '--' . $boundary . "\r\n";
             $payload .= 'Content-Disposition: form-data; name="attachments[]"; filename="' . $filename . '"' . "\r\n";
@@ -1030,6 +1036,9 @@ class Licensesender_Api {
 
     /**
      * Multipart POST for support ticket create/reply.
+     *
+     * Uses native cURL + CURLFile so PNG/PDF binary data is not truncated at null bytes
+     * (a common failure mode when posting a raw multipart string through wp_remote_post).
      *
      * @param string               $path         Relative API path.
      * @param array<string, mixed> $fields       Form fields.
@@ -1060,21 +1069,12 @@ class Licensesender_Api {
 
         $url = trailingslashit( $base ) . ltrim( $path, '/' );
 
-        $multipart = static::build_multipart_body( $fields, $files );
         $headers = static::support_headers( $access_token, $customer_email );
         if ( trim( (string) $chat_token ) !== '' ) {
             $headers['X-Chat-Session-Token'] = trim( (string) $chat_token );
         }
-        $headers['Content-Type'] = 'multipart/form-data; boundary=' . $multipart['boundary'];
 
-        $response  = wp_remote_post(
-            $url,
-            array(
-                'headers' => $headers,
-                'body'    => $multipart['body'],
-                'timeout' => 60,
-            )
-        );
+        $response = static::send_multipart_request( $url, $headers, $fields, $files );
 
         if ( is_wp_error( $response ) ) {
             return array(
@@ -1084,8 +1084,8 @@ class Licensesender_Api {
             );
         }
 
-        $http_code = (int) wp_remote_retrieve_response_code( $response );
-        $raw_body  = wp_remote_retrieve_body( $response );
+        $http_code = (int) ( $response['http_code'] ?? 0 );
+        $raw_body  = (string) ( $response['body'] ?? '' );
         $data      = json_decode( $raw_body, true );
 
         if ( ! is_array( $data ) ) {
@@ -1113,6 +1113,107 @@ class Licensesender_Api {
             'data'      => $data['data'] ?? array(),
             'meta'      => $data['meta'] ?? array(),
             'http_code' => $http_code,
+        );
+    }
+
+    /**
+     * Send multipart request with binary-safe file parts.
+     *
+     * @param string               $url
+     * @param array<string,string> $headers
+     * @param array<string,mixed>  $fields
+     * @param array<int,array>     $files
+     * @return array{body:string,http_code:int}|\WP_Error
+     */
+    protected static function send_multipart_request( $url, array $headers, array $fields, array $files ) {
+        if ( function_exists( 'curl_init' ) && class_exists( 'CURLFile' ) ) {
+            $post_fields = array();
+
+            foreach ( $fields as $name => $value ) {
+                if ( is_array( $value ) ) {
+                    continue;
+                }
+                $post_fields[ (string) $name ] = (string) $value;
+            }
+
+            $index = 0;
+            foreach ( $files as $file ) {
+                if ( empty( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
+                    continue;
+                }
+
+                $filename = ! empty( $file['name'] ) ? sanitize_file_name( wp_basename( (string) $file['name'] ) ) : basename( $file['tmp_name'] );
+                $filename = str_replace( array( '"', "\r", "\n" ), '', $filename );
+                if ( $filename === '' ) {
+                    $filename = 'attachment';
+                }
+
+                $type = ! empty( $file['type'] ) ? (string) $file['type'] : 'application/octet-stream';
+                $post_fields[ 'attachments[' . $index . ']' ] = new CURLFile( $file['tmp_name'], $type, $filename );
+                $index++;
+            }
+
+            $curl_headers = array();
+            foreach ( $headers as $key => $value ) {
+                if ( strtolower( (string) $key ) === 'content-type' ) {
+                    // Let cURL set multipart boundary when using CURLFile.
+                    continue;
+                }
+                $curl_headers[] = $key . ': ' . $value;
+            }
+
+            $ch = curl_init( $url );
+            if ( $ch === false ) {
+                return new WP_Error( 'curl_init', __( 'Unable to initialize upload request.', 'licensesender' ) );
+            }
+
+            curl_setopt_array(
+                $ch,
+                array(
+                    CURLOPT_POST           => true,
+                    CURLOPT_POSTFIELDS     => $post_fields,
+                    CURLOPT_HTTPHEADER     => $curl_headers,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 60,
+                    CURLOPT_FOLLOWLOCATION => true,
+                )
+            );
+
+            $body = curl_exec( $ch );
+            $code = (int) curl_getinfo( $ch, CURLINFO_HTTP_CODE );
+            $err  = curl_error( $ch );
+            curl_close( $ch );
+
+            if ( $body === false ) {
+                return new WP_Error( 'curl_error', $err !== '' ? $err : __( 'Upload request failed.', 'licensesender' ) );
+            }
+
+            return array(
+                'body'      => (string) $body,
+                'http_code' => $code,
+            );
+        }
+
+        // Fallback: raw multipart string. May corrupt binary files if transport truncates at NUL.
+        $multipart = static::build_multipart_body( $fields, $files );
+        $headers['Content-Type'] = 'multipart/form-data; boundary=' . $multipart['boundary'];
+
+        $response = wp_remote_post(
+            $url,
+            array(
+                'headers' => $headers,
+                'body'    => $multipart['body'],
+                'timeout' => 60,
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            return $response;
+        }
+
+        return array(
+            'body'      => (string) wp_remote_retrieve_body( $response ),
+            'http_code' => (int) wp_remote_retrieve_response_code( $response ),
         );
     }
 

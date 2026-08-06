@@ -228,6 +228,34 @@
   position: relative;
   display: block;
   width: 100%;
+  overflow: visible;
+  z-index: 1;
+}
+
+.ls-support-select-wrap:has(.select2-container--open) {
+  z-index: 20;
+}
+
+/* Theme/plugin select styles must not un-hide Select2's native <select>,
+   or the selected label appears twice under the Select2 control. */
+.ls-support-wrap select.ls-support-select.select2-hidden-accessible,
+.ls-support-select-wrap select.select2-hidden-accessible,
+.ls-support-wrap select.ls-support-filter-select.select2-hidden-accessible {
+  border: 0 !important;
+  clip: rect(0 0 0 0) !important;
+  clip-path: inset(50%) !important;
+  height: 1px !important;
+  width: 1px !important;
+  min-height: 0 !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
 .ls-support-select-caret {

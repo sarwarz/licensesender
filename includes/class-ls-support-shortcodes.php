@@ -87,21 +87,23 @@ class LS_Support_Shortcodes {
 								<div class="ls-support-field">
 									<label for="ls-support-category"><?php esc_html_e( 'Category', 'licensesender' ); ?></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-category" name="category" class="ls-support-select ls-support-select2">
+										<select id="ls-support-category" name="category" class="ls-support-select">
 											<?php foreach ( LS_Support::get_categories() as $value => $label ) : ?>
 												<option value="<?php echo esc_attr( $value ); ?>"><?php echo esc_html( $label ); ?></option>
 											<?php endforeach; ?>
 										</select>
+										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 								<div class="ls-support-field">
 									<label for="ls-support-priority"><?php esc_html_e( 'Priority', 'licensesender' ); ?></label>
 									<div class="ls-support-select-wrap">
-										<select id="ls-support-priority" name="priority" class="ls-support-select ls-support-select2">
+										<select id="ls-support-priority" name="priority" class="ls-support-select">
 											<?php foreach ( LS_Support::get_priorities() as $value => $label ) : ?>
 												<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $value, 'normal' ); ?>><?php echo esc_html( $label ); ?></option>
 											<?php endforeach; ?>
 										</select>
+										<span class="ls-support-select-caret" aria-hidden="true"></span>
 									</div>
 								</div>
 							</div>

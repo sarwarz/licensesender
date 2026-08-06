@@ -147,9 +147,11 @@
     // Append dropdown to <body> so theme overflow/transform on cards
     // cannot detach or clip the menu (common cross-theme Select2 bug).
     try {
+      const $parent = $el.closest('.ls-support-select-wrap');
       $el[fn]({
         width: '100%',
-        dropdownParent: $(document.body),
+        // Keep the menu inside the field wrap so themes can't park it at 0,0.
+        dropdownParent: $parent.length ? $parent : $(document.body),
         dropdownCssClass: 'ls-support-select2-dropdown',
         containerCssClass: 'ls-support-select2-container',
         placeholder: $el.data('placeholder') || '',
