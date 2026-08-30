@@ -212,8 +212,11 @@ class LS_My_Keys_Endpoint {
 
     protected static function render_actions($r) {
          $order = wc_get_order( (int) $r['order_id'] );
+         $count    = self::cached_license_count( (int) $r['order_id'], (int) $r['product_id'] );
+         $expected = $order ? ls_count_expected_keys_for_product_in_order( $order, (int) $r['product_id'] ) : (int) $r['qty'];
+         $can_fetch = self::is_order_license_ready( (int) $r['order_id'] );
 
-         if ( ! self::is_order_license_ready( (int) $r['order_id'] ) ) {
+         if ( ! $can_fetch && $count <= 0 ) {
             if ( $order && ! $order->has_status( 'completed' ) ) {
                 echo '<span class="ls-status ls-pending" title="' .
                      esc_attr__( 'Licenses are available after the order is completed.', 'licensesender' ) .
@@ -224,7 +227,7 @@ class LS_My_Keys_Endpoint {
             }
 
             echo '<span class="ls-status ls-unmanaged" title="' .
-                 esc_attr__( 'This order was completed by another system. licensesender did not process this order, so licenses cannot be delivered.', 'licensesender' ) .
+                 esc_attr( ls_order_delivery_block_message( $order ) ) .
                  '">' .
                  esc_html__( 'Undeliverable', 'licensesender' ) .
                  '</span>';
@@ -241,10 +244,7 @@ class LS_My_Keys_Endpoint {
           esc_attr( (string) $r['billing_email'] )
         );
 
-        $count    = self::cached_license_count( (int) $r['order_id'], (int) $r['product_id'] );
-        $expected = $order ? ls_count_expected_keys_for_product_in_order( $order, (int) $r['product_id'] ) : (int) $r['qty'];
-
-        if ( $count >= $expected && $count > 0 ) {
+        if ( $count > 0 && ( $count >= $expected || ! $can_fetch ) ) {
             printf(
                 '<button type="button" class="button ls-btn-view-key"%s data-product-name="%s" data-nonce="%s">%s</button>',
                 $attrs,
@@ -252,13 +252,19 @@ class LS_My_Keys_Endpoint {
                 esc_attr( wp_create_nonce('ls_view_key') ),
                 sprintf( esc_html__('View Keys', 'licensesender'))
             );
-        } else {
+        } elseif ( $can_fetch ) {
             printf(
                 '<button type="button" class="button ls-btn-get-key"%s data-nonce="%s">%s</button>',
                 $attrs,
                 esc_attr( wp_create_nonce('ls_get_key') ),
                 esc_html__('Get Keys', 'licensesender')
             );
+        } else {
+            echo '<span class="ls-status ls-unmanaged" title="' .
+                 esc_attr( ls_order_delivery_block_message( $order ) ) .
+                 '">' .
+                 esc_html__( 'Undeliverable', 'licensesender' ) .
+                 '</span>';
         }
 
 
@@ -495,6 +501,16 @@ class LS_My_Keys_Endpoint {
         if ( count( $rows ) >= $expected_qty && $expected_qty > 0 ) {
             $payload = $build_payload( $rows );
             wp_send_json_success( $payload );
+        }
+
+        if ( ! ls_order_can_fetch_new_keys( $order ) ) {
+            wp_send_json_error(
+                array(
+                    'message' => ls_order_delivery_block_message( $order ),
+                    'meta'    => array( 'reason' => 'order_not_eligible_for_ls_delivery' ),
+                ),
+                403
+            );
         }
 
         $need = max( 1, $expected_qty - count( $rows ) );

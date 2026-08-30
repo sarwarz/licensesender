@@ -1,14 +1,18 @@
 import {
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   Download,
   Layers,
   Mail,
   PackageCheck,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react';
 import { SettingsSection } from '@/components/settings/SettingsSection';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -117,9 +121,19 @@ function ToggleRow({
   );
 }
 
+function formatDisplayDate(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
 export function GeneralSettingsFields({ settings, onChange }: GeneralSettingsFieldsProps) {
   const yesNo = (key: string) => settings[key] === 'yes';
   const enabledCount = [...ORDER_TOGGLES, ...CATALOG_TOGGLES].filter((item) => yesNo(item.key)).length;
+  const activationDate = settings.lship_activated_at || '';
+  const deliveryStartDate = settings.lship_delivery_start_date || activationDate;
+  const isActivationDefault = Boolean(activationDate) && deliveryStartDate === activationDate;
 
   return (
     <div className="space-y-8">
@@ -164,6 +178,65 @@ export function GeneralSettingsFields({ settings, onChange }: GeneralSettingsFie
             onCheckedChange={(v) => onChange(item.key, v ? 'yes' : 'no')}
           />
         ))}
+
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex items-start gap-4 border-b border-slate-100 bg-[linear-gradient(135deg,#f8fafc_0%,#ffffff_70%)] px-4 py-4 sm:px-5">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm">
+              <CalendarClock className="h-4 w-4" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <Label htmlFor="lship_delivery_start_date" className="text-sm font-semibold text-foreground">
+                  Delivery start date
+                </Label>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'border-0 text-[10px] font-semibold uppercase tracking-wide',
+                    isActivationDefault ? 'bg-sky-50 text-sky-700' : 'bg-amber-50 text-amber-700'
+                  )}
+                >
+                  {isActivationDefault ? 'Activation default' : 'Custom'}
+                </Badge>
+              </div>
+              <p className="max-w-2xl text-xs leading-relaxed text-muted-foreground">
+                Orders completed before this date cannot fetch new LicenseSender keys. Defaults to the
+                plugin activation date so older other-system orders are not redelivered.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 px-4 py-4 sm:px-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+                <DatePicker
+                  id="lship_delivery_start_date"
+                  value={deliveryStartDate}
+                  onChange={(next) => onChange('lship_delivery_start_date', next)}
+                  placeholder="Select delivery start date"
+                />
+                {activationDate && !isActivationDefault ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 shrink-0 gap-1.5 px-2.5 text-slate-600"
+                    onClick={() => onChange('lship_delivery_start_date', activationDate)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+                    Use activation date
+                  </Button>
+                ) : null}
+              </div>
+              {activationDate ? (
+                <p className="shrink-0 pt-2 text-xs text-muted-foreground sm:pt-2.5">
+                  Activated{' '}
+                  <span className="font-medium text-slate-700">{formatDisplayDate(activationDate)}</span>
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </SettingsSection>
 
       <SettingsSection

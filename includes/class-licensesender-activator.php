@@ -73,6 +73,10 @@ class Licensesender_Activator {
 		add_option( 'lship_autocomplete_order', 'yes' );
 		add_option( 'lship_send_email_after_redeem', 'no' );
 
+		$activated = function_exists( 'wp_date' ) ? wp_date( 'Y-m-d' ) : gmdate( 'Y-m-d' );
+		add_option( 'lship_activated_at', $activated );
+		add_option( 'lship_delivery_start_date', $activated );
+
 		/* =========================
 		   API — never blank an existing key
 		========================= */

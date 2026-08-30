@@ -859,9 +859,9 @@ class Licensesender_Api {
         if ( ! ls_is_order_license_ready( $order ) ) {
             return [
                 'success'   => false,
-                'message'   => __( 'License is not ready yet for this order.', 'licensesender' ),
+                'message'   => ls_order_delivery_block_message( $order ),
                 'meta'      => [
-                    'reason' => 'order_not_completed_by_ls_delivery_system',
+                    'reason' => 'order_not_eligible_for_ls_delivery',
                 ],
                 'http_code' => 403,
             ];

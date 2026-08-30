@@ -255,45 +255,192 @@ function ls_order_has_licensable_products( WC_Order $order ): bool {
 }
 
 /**
- * Whether license fetch/display is allowed for this order (HPOS-safe).
+ * Whether LicenseSender stamped this order as completed under its delivery flow.
  */
-function ls_is_order_license_ready( $order ) {
+function ls_order_has_ls_delivery_meta( $order ): bool {
 	if ( ! $order instanceof WC_Order ) {
 		$order = wc_get_order( $order );
 	}
 
-	if ( ! $order ) {
-		return false;
-	}
-
-	if ( $order->get_meta( '_ls_completed_licensesender', true ) === 'yes' ) {
-		return true;
-	}
-
-	// Legacy fallback: completed orders with LS products before meta existed.
-	if ( $order->has_status( 'completed' ) && ls_order_has_licensesender_product( $order ) ) {
-		return true;
-	}
-
-	return false;
+	return $order instanceof WC_Order
+		&& $order->get_meta( '_ls_completed_licensesender', true ) === 'yes';
 }
 
 /**
- * Long-lived HMAC token for activation-guide downloads (email-safe; ~30 days).
+ * Ensure and return the plugin activation date (Y-m-d, site timezone).
  *
- * @param int         $key_id Cached license row ID.
- * @param WC_Order    $order  Order.
- * @param int         $ttl    Seconds until expiry.
+ * Existing installs without a stored date are seeded once on first read.
+ */
+function ls_ensure_plugin_activation_date(): string {
+	$existing = trim( (string) get_option( 'lship_activated_at', '' ) );
+	if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $existing ) ) {
+		return $existing;
+	}
+
+	$date = function_exists( 'wp_date' ) ? wp_date( 'Y-m-d' ) : gmdate( 'Y-m-d' );
+	add_option( 'lship_activated_at', $date );
+
+	return $date;
+}
+
+/**
+ * Effective delivery start cutoff (Y-m-d).
+ * Falls back to plugin activation date when the setting is empty/invalid.
+ */
+function ls_get_delivery_start_date(): string {
+	$cutoff = trim( (string) get_option( 'lship_delivery_start_date', '' ) );
+	if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $cutoff ) ) {
+		return $cutoff;
+	}
+
+	$activated = ls_ensure_plugin_activation_date();
+	add_option( 'lship_delivery_start_date', $activated );
+
+	return $activated;
+}
+
+/**
+ * Whether the order was completed on/after the merchant delivery start date.
+ */
+function ls_order_is_after_delivery_start( $order ): bool {
+	if ( ! $order instanceof WC_Order ) {
+		$order = wc_get_order( $order );
+	}
+
+	if ( ! $order instanceof WC_Order ) {
+		return false;
+	}
+
+	$cutoff = ls_get_delivery_start_date();
+	if ( $cutoff === '' || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $cutoff ) ) {
+		return false;
+	}
+
+	$order_dt = $order->get_date_completed() ?: $order->get_date_created();
+	if ( ! $order_dt ) {
+		return false;
+	}
+
+	try {
+		$cutoff_dt = new DateTimeImmutable( $cutoff . ' 00:00:00', wp_timezone() );
+	} catch ( Exception $e ) {
+		return false;
+	}
+
+	$order_local = $order_dt->setTimezone( wp_timezone() );
+
+	return $order_local->getTimestamp() >= $cutoff_dt->getTimestamp();
+}
+
+/**
+ * Whether this order may call SaaS to assign new license keys.
+ *
+ * Allowed when LicenseSender completion meta is present, or the order
+ * completed on/after lship_delivery_start_date. Blocks legacy other-system orders.
+ */
+function ls_order_can_fetch_new_keys( $order ): bool {
+	if ( ! $order instanceof WC_Order ) {
+		$order = wc_get_order( $order );
+	}
+
+	if ( ! $order instanceof WC_Order ) {
+		return false;
+	}
+
+	if ( ! $order->has_status( 'completed' ) ) {
+		return false;
+	}
+
+	if ( ! ls_order_has_licensesender_product( $order ) ) {
+		return false;
+	}
+
+	return ls_order_has_ls_delivery_meta( $order ) || ls_order_is_after_delivery_start( $order );
+}
+
+/**
+ * Customer-facing reason when new key delivery is blocked.
+ */
+function ls_order_delivery_block_message( $order = null ): string {
+	return __(
+		'This order was completed before LicenseSender delivery started, so new keys cannot be issued.',
+		'licensesender'
+	);
+}
+
+/**
+ * Whether license fetch/display is allowed for this order (HPOS-safe).
+ *
+ * Fetch of new keys requires LS completion meta OR delivery-start cutoff.
+ * Display of already-cached keys is handled separately by callers.
+ */
+function ls_is_order_license_ready( $order ) {
+	return ls_order_can_fetch_new_keys( $order );
+}
+
+/**
+ * Stable secret for activation-guide download tokens (does not rotate with AUTH salts).
+ */
+function ls_guide_download_secret(): string {
+	$secret = (string) get_option( 'lship_guide_download_secret', '' );
+	if ( strlen( $secret ) >= 32 ) {
+		return $secret;
+	}
+
+	$secret = wp_generate_password( 64, true, true );
+	update_option( 'lship_guide_download_secret', $secret, false );
+
+	return $secret;
+}
+
+/**
+ * URL-safe base64 (no +, /, or =) so email clients and query parsers do not corrupt tokens.
+ */
+function ls_base64url_encode( string $data ): string {
+	return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
+}
+
+/**
+ * Decode URL-safe or legacy standard base64 tokens.
+ */
+function ls_base64url_decode( string $data ) {
+	$data = trim( $data );
+	if ( $data === '' ) {
+		return false;
+	}
+
+	// Repair common query-string corruption: + became space.
+	$data = str_replace( ' ', '+', $data );
+
+	if ( strpos( $data, '-' ) !== false || strpos( $data, '_' ) !== false ) {
+		$padded = $data . str_repeat( '=', ( 4 - ( strlen( $data ) % 4 ) ) % 4 );
+		$raw    = base64_decode( strtr( $padded, '-_', '+/' ), true );
+		if ( is_string( $raw ) && $raw !== '' ) {
+			return $raw;
+		}
+	}
+
+	$raw = base64_decode( $data, true );
+	return ( is_string( $raw ) && $raw !== '' ) ? $raw : false;
+}
+
+/**
+ * Long-lived HMAC token for activation-guide downloads (email-safe).
+ *
+ * @param int      $key_id Cached license row ID.
+ * @param WC_Order $order  Order.
+ * @param int      $ttl    Seconds until expiry.
  * @return string
  */
-function ls_create_guide_download_token( $key_id, WC_Order $order, $ttl = MONTH_IN_SECONDS ) {
+function ls_create_guide_download_token( $key_id, WC_Order $order, $ttl = null ) {
 	$key_id  = absint( $key_id );
-	$expires = time() + max( HOUR_IN_SECONDS, (int) $ttl );
+	$ttl     = null === $ttl ? ( defined( 'YEAR_IN_SECONDS' ) ? 5 * YEAR_IN_SECONDS : 5 * 365 * DAY_IN_SECONDS ) : (int) $ttl;
+	$expires = time() + max( DAY_IN_SECONDS, $ttl );
 	$email   = strtolower( sanitize_email( (string) $order->get_billing_email() ) );
 	$payload = $key_id . '|' . (int) $order->get_id() . '|' . $email . '|' . $expires;
-	$sig     = hash_hmac( 'sha256', $payload, wp_salt( 'auth' ) );
+	$sig     = hash_hmac( 'sha256', $payload, ls_guide_download_secret() );
 
-	return base64_encode( $payload . '|' . $sig );
+	return ls_base64url_encode( $payload . '|' . $sig );
 }
 
 /**
@@ -305,8 +452,7 @@ function ls_create_guide_download_token( $key_id, WC_Order $order, $ttl = MONTH_
  * @return bool
  */
 function ls_verify_guide_download_token( $token, $key_id, WC_Order $order ) {
-	$token = (string) $token;
-	$raw   = base64_decode( $token, true );
+	$raw = ls_base64url_decode( (string) $token );
 	if ( ! is_string( $raw ) || $raw === '' ) {
 		return false;
 	}
@@ -318,9 +464,26 @@ function ls_verify_guide_download_token( $token, $key_id, WC_Order $order ) {
 
 	list( $tok_key_id, $tok_order_id, $tok_email, $tok_expires, $tok_sig ) = $parts;
 	$payload = $tok_key_id . '|' . $tok_order_id . '|' . $tok_email . '|' . $tok_expires;
-	$expect  = hash_hmac( 'sha256', $payload, wp_salt( 'auth' ) );
 
-	if ( ! hash_equals( $expect, $tok_sig ) ) {
+	$secrets = array_unique(
+		array_filter(
+			array(
+				ls_guide_download_secret(),
+				(string) wp_salt( 'auth' ), // Legacy tokens signed with AUTH salt.
+			)
+		)
+	);
+
+	$sig_ok = false;
+	foreach ( $secrets as $secret ) {
+		$expect = hash_hmac( 'sha256', $payload, $secret );
+		if ( hash_equals( $expect, $tok_sig ) ) {
+			$sig_ok = true;
+			break;
+		}
+	}
+
+	if ( ! $sig_ok ) {
 		return false;
 	}
 	if ( (int) $tok_key_id !== (int) $key_id || (int) $tok_order_id !== (int) $order->get_id() ) {
@@ -523,9 +686,12 @@ function ls_render_license_table( $order_id, $return = false ) {
 		return;
 	}
 
-	if ( ! ls_is_order_license_ready( $order ) ) {
+	if ( ! ls_order_has_licensesender_product( $order ) ) {
 		return;
 	}
+
+	$can_fetch_new = ls_order_can_fetch_new_keys( $order );
+	$block_message = ls_order_delivery_block_message( $order );
 
 	global $wpdb;
 	$table = $wpdb->prefix . 'ls_cached_licenses';
@@ -552,14 +718,22 @@ function ls_render_license_table( $order_id, $return = false ) {
 			?>
 			<a href="<?php echo esc_url( $url ); ?>" class="button ls-export-all-btn">Download All</a>
 
-			<a href="#"
-			   class="button wp-element-button ls-get-all-keys-btn"
-			   data-order-id="<?php echo esc_attr( $order_id ); ?>"
-			   title="<?php esc_attr_e( 'Retrieve all license keys step by step', 'licensesender' ); ?>">
-				<span class="ls-btn-text"><?php _e( 'Get All Keys', 'licensesender' ); ?></span>
-			</a>
+			<?php if ( $can_fetch_new ) : ?>
+				<a href="#"
+				   class="button wp-element-button ls-get-all-keys-btn"
+				   data-order-id="<?php echo esc_attr( $order_id ); ?>"
+				   title="<?php esc_attr_e( 'Retrieve all license keys step by step', 'licensesender' ); ?>">
+					<span class="ls-btn-text"><?php _e( 'Get All Keys', 'licensesender' ); ?></span>
+				</a>
+			<?php endif; ?>
 		</div>
 	</h2>
+
+	<?php if ( ! $can_fetch_new ) : ?>
+		<p class="ls-delivery-blocked-notice" style="margin:0 0 16px;padding:12px 14px;border:1px solid #fcd34d;background:#fffbeb;border-radius:8px;color:#92400e;">
+			<?php echo esc_html( $block_message ); ?>
+		</p>
+	<?php endif; ?>
 
 	<table class="woocommerce-table woocommerce-table--order-details shop_table order_details" cellspacing="0" cellpadding="6" border="1" style="width:100%;margin-bottom:40px;">
 		<thead>
@@ -609,11 +783,11 @@ function ls_render_license_table( $order_id, $return = false ) {
 					<td><?php echo esc_html( $email ); ?></td>
 					<td><?php echo esc_html( (string) $quantity ); ?><?php echo $has_partial ? esc_html( sprintf( ' (%d/%d)', $cached_count, $quantity ) ) : ''; ?></td>
 					<td>
-						<?php if ( $is_complete ) : ?>
+						<?php if ( $cached_count > 0 ) : ?>
 							<button class="button ls-toggle-license-btn">
 								<?php _e( 'View Key', 'licensesender' ); ?>
 							</button>
-						<?php else : ?>
+						<?php elseif ( $can_fetch_new ) : ?>
 							<button class="button ls-view-license-btn"
 							   data-product-name="<?php echo esc_attr( $product_name ); ?>"
 							   data-product-id="<?php echo esc_attr( $product_id ); ?>"
@@ -623,6 +797,8 @@ function ls_render_license_table( $order_id, $return = false ) {
 							   data-order-key="<?php echo esc_attr( $order->get_order_key() ); ?>">
 								<?php _e( 'Get Key', 'licensesender' ); ?>
 							</button>
+						<?php else : ?>
+							<span class="ls-status ls-unmanaged"><?php esc_html_e( 'Undeliverable', 'licensesender' ); ?></span>
 						<?php endif; ?>
 					</td>
 				</tr>
@@ -770,6 +946,9 @@ function ls_maybe_upgrade_database() {
 		Licensesender_Activator::ls_create_download_links_table();
 		Licensesender_Activator::ls_create_activation_guides_table();
 	}
+
+	// Seed delivery cutoff defaults for upgrades that predate these options.
+	ls_get_delivery_start_date();
 
 	update_option( 'licensesender_db_version', LICENSESENDER_VERSION );
 }

@@ -32,6 +32,15 @@ class Licensesender_Admin_Fetch_License {
 			wp_send_json_error( array( 'message' => __( 'Order must be completed.', 'licensesender' ) ) );
 		}
 
+		if ( ! ls_order_can_fetch_new_keys( $order ) ) {
+			wp_send_json_error(
+				array(
+					'message' => ls_order_delivery_block_message( $order ),
+					'meta'    => array( 'reason' => 'order_not_eligible_for_ls_delivery' ),
+				)
+			);
+		}
+
 		$quantity = ls_count_expected_keys_for_product_in_order( $order, $product_id );
 		if ( $quantity <= 0 ) {
 			wp_send_json_error( array( 'message' => __( 'Product not found in order.', 'licensesender' ) ) );

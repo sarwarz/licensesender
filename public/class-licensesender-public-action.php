@@ -71,6 +71,15 @@ class Ls_Licensesender_Public_Action {
 			wp_send_json_success( array( 'html' => self::render_license_rows_html( $cached_keys, $order ) ) );
 		}
 
+		if ( ! ls_order_can_fetch_new_keys( $order ) ) {
+			wp_send_json_error(
+				array(
+					'message' => ls_order_delivery_block_message( $order ),
+					'meta'    => array( 'reason' => 'order_not_eligible_for_ls_delivery' ),
+				)
+			);
+		}
+
 		if ( ! ls_is_licensesender_enabled( $used_product_id ) ) {
 			wp_send_json_error( array( 'message' => __( 'licensesender is not enabled for this product.', 'licensesender' ) ) );
 		}
@@ -201,15 +210,20 @@ class Ls_Licensesender_Public_Action {
 			wp_die( esc_html__( 'Unauthorized', 'licensesender' ), '', 403 );
 		}
 
-		if ( ! $order->has_status( 'completed' ) || ! ls_is_order_license_ready( $order ) ) {
+		if ( ! $order->has_status( 'completed' ) ) {
 			wp_die( esc_html__( 'Order not paid/ready.', 'licensesender' ), '', 403 );
 		}
 
+		// Export uses cached keys only; allow when any cache exists even if new fetch is blocked.
 		global $wpdb;
 		$table    = $wpdb->prefix . 'ls_cached_licenses';
 		$licenses = $wpdb->get_results(
 			$wpdb->prepare( "SELECT * FROM $table WHERE order_id = %d", $order_id )
 		);
+
+		if ( empty( $licenses ) && ! ls_order_can_fetch_new_keys( $order ) ) {
+			wp_die( esc_html( ls_order_delivery_block_message( $order ) ), '', 403 );
+		}
 
 		if ( empty( $licenses ) ) {
 			wp_die( esc_html__( 'No license keys found for this order.', 'licensesender' ), '', 404 );
@@ -244,8 +258,10 @@ class Ls_Licensesender_Public_Action {
 
 	public static function ls_download_activation_guide() {
 		$key_id = isset( $_GET['key_id'] ) ? absint( $_GET['key_id'] ) : 0;
-		$token  = isset( $_GET['token'] ) ? sanitize_text_field( wp_unslash( $_GET['token'] ) ) : '';
-		$nonce  = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
+		// Allowlist only — sanitize_text_field / +→space corruption breaks base64 tokens.
+		$token_raw = isset( $_GET['token'] ) ? wp_unslash( $_GET['token'] ) : '';
+		$token     = is_string( $token_raw ) ? preg_replace( '/[^A-Za-z0-9\-_=+\/]/', '', $token_raw ) : '';
+		$nonce     = isset( $_GET['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ) : '';
 
 		if ( ! $key_id ) {
 			wp_die( esc_html__( 'Invalid request.', 'licensesender' ) );
@@ -269,13 +285,19 @@ class Ls_Licensesender_Public_Action {
 		$email     = isset( $_GET['email'] ) ? sanitize_email( wp_unslash( $_GET['email'] ) ) : '';
 		$order_key = isset( $_GET['order_key'] ) ? wc_clean( wp_unslash( $_GET['order_key'] ) ) : '';
 
-		if ( ! ls_user_can_access_order_licenses( $order, array( 'email' => $email, 'order_key' => $order_key ) ) ) {
-			wp_die( esc_html__( 'Unauthorized', 'licensesender' ), '', 403 );
-		}
-
+		$access_ok = ls_user_can_access_order_licenses(
+			$order,
+			array(
+				'email'     => $email,
+				'order_key' => $order_key,
+			)
+		);
 		$token_ok = ( $token !== '' && ls_verify_guide_download_token( $token, $key_id, $order ) );
 		$nonce_ok = ( $nonce !== '' && wp_verify_nonce( $nonce, 'dl_guide_' . $key_id ) );
-		if ( ! $token_ok && ! $nonce_ok ) {
+
+		// Order key + billing email (or owner/admin) is sufficient — same trust model as key export.
+		// Token/nonce remain accepted for older links and edge cases.
+		if ( ! $access_ok && ! $token_ok && ! $nonce_ok ) {
 			wp_die( esc_html__( 'Invalid or expired download link.', 'licensesender' ) );
 		}
 

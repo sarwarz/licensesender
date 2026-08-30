@@ -988,6 +988,8 @@ class LS_Admin_Service {
 					'lship_enable_variation_support'         => get_option( 'lship_enable_variation_support', 'no' ),
 					'lship_enable_manage_downloads'          => get_option( 'lship_enable_manage_downloads', 'no' ),
 					'lship_enable_manage_activation_guides'  => get_option( 'lship_enable_manage_activation_guides', 'no' ),
+					'lship_activated_at'                     => ls_ensure_plugin_activation_date(),
+					'lship_delivery_start_date'              => ls_get_delivery_start_date(),
 				);
 		}
 	}
@@ -1002,6 +1004,12 @@ class LS_Admin_Service {
 				update_option( 'lship_enable_variation_support', ( $data['lship_enable_variation_support'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_enable_manage_downloads', ( $data['lship_enable_manage_downloads'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_enable_manage_activation_guides', ( $data['lship_enable_manage_activation_guides'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+				$start_date = sanitize_text_field( (string) ( $data['lship_delivery_start_date'] ?? '' ) );
+				if ( $start_date !== '' && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start_date ) ) {
+					update_option( 'lship_delivery_start_date', $start_date );
+				} else {
+					update_option( 'lship_delivery_start_date', ls_ensure_plugin_activation_date() );
+				}
 				break;
 			case 'api':
 				update_option( 'lship_api_key', sanitize_text_field( $data['lship_api_key'] ?? '' ) );
