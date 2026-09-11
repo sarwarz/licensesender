@@ -157,7 +157,7 @@ class LS_Support_Shortcodes {
 									<button type="button" class="button ls-support-btn-secondary ls-support-attach-link"><?php esc_html_e( 'Attach files', 'licensesender' ); ?></button>
 									<span class="ls-support-attach-names" aria-live="polite"><?php esc_html_e( 'No files selected', 'licensesender' ); ?></span>
 								</div>
-								<p class="ls-support-help"><?php esc_html_e( 'Images, PDF, or video up to 5 MB each.', 'licensesender' ); ?></p>
+								<p class="ls-support-help"><?php esc_html_e( 'Images, PDF, or video up to 10 MB each.', 'licensesender' ); ?></p>
 							</div>
 						</section>
 

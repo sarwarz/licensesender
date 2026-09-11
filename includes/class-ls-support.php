@@ -1144,6 +1144,9 @@ class LS_Support {
 		}
 
 		$token = self::get_ticket_access_token( $user_id, $ticket_number );
+		if ( $token === '' ) {
+			$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number );
+		}
 
 		if ( $token !== '' ) {
 			$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
@@ -1250,6 +1253,9 @@ class LS_Support {
 			$summary['status'] = (string) $saved['status'];
 		}
 		$token = self::get_ticket_access_token( $user_id, $ticket_number );
+		if ( $token === '' ) {
+			$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number );
+		}
 		if ( ! self::ticket_allows_customer_reply( (string) ( $summary['status'] ?? '' ) ) ) {
 			return array(
 				'success'   => false,
@@ -1301,6 +1307,54 @@ class LS_Support {
 		$message = strtolower( (string) ( $result['message'] ?? '' ) );
 
 		return str_contains( $message, 'missing ticket access token' );
+	}
+
+	/**
+	 * Issue/refresh a SaaS customer access token when the local copy is missing.
+	 *
+	 * @param int    $user_id       WP user ID.
+	 * @param string $email         Customer email.
+	 * @param string $ticket_number Ticket number.
+	 * @return string
+	 */
+	public static function ensure_ticket_access_token( $user_id, $email, $ticket_number ) {
+		$user_id       = (int) $user_id;
+		$email         = sanitize_email( (string) $email );
+		$ticket_number = sanitize_text_field( (string) $ticket_number );
+
+		if ( ! $user_id || $email === '' || $ticket_number === '' ) {
+			return '';
+		}
+
+		$existing = self::get_ticket_access_token( $user_id, $ticket_number );
+		if ( $existing !== '' ) {
+			return $existing;
+		}
+
+		$result = Licensesender_Api::issue_support_ticket_access_token( $ticket_number, $email );
+		if ( empty( $result['success'] ) ) {
+			return '';
+		}
+
+		$token = self::extract_access_token( is_array( $result['data'] ?? null ) ? $result['data'] : $result );
+		if ( $token === '' ) {
+			$token = trim( (string) ( $result['access_token'] ?? '' ) );
+		}
+
+		if ( $token === '' ) {
+			return '';
+		}
+
+		self::save_ticket_access(
+			$user_id,
+			$ticket_number,
+			array(
+				'access_token'   => $token,
+				'customer_email' => $email,
+			)
+		);
+
+		return $token;
 	}
 
 	/**
@@ -1713,18 +1767,40 @@ class LS_Support {
 	 * @return array<int, array>|WP_Error
 	 */
 	public static function validate_uploads( array $files ) {
-		$allowed      = array( 'jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf', 'mp4', 'webm', 'mov', 'm4v' );
-		$max_mb       = (int) apply_filters( 'ls_support_max_upload_mb', 5 );
+		$allowed      = array( 'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'pdf', 'mp4', 'webm', 'mov', 'm4v' );
+		$max_mb       = (int) apply_filters( 'ls_support_max_upload_mb', 10 );
 		$max_b        = max( 1, $max_mb ) * 1024 * 1024;
-		$max_files    = max( 1, (int) apply_filters( 'ls_support_max_upload_count', 5 ) );
-		$max_total_mb = (int) apply_filters( 'ls_support_max_total_upload_mb', 20 );
+		$max_files    = max( 1, (int) apply_filters( 'ls_support_max_upload_count', 10 ) );
+		$max_total_mb = (int) apply_filters( 'ls_support_max_total_upload_mb', 40 );
 		$max_total_b  = max( 1, $max_total_mb ) * 1024 * 1024;
 		$clean        = array();
 		$total_size   = 0;
+		$mime_map     = array(
+			'jpg|jpeg' => 'image/jpeg',
+			'png'      => 'image/png',
+			'gif'      => 'image/gif',
+			'webp'     => 'image/webp',
+			'bmp'      => 'image/bmp',
+			'pdf'      => 'application/pdf',
+			'mp4'      => 'video/mp4',
+			'webm'     => 'video/webm',
+			'mov'      => 'video/quicktime',
+			'm4v'      => 'video/x-m4v',
+		);
 
 		foreach ( $files as $file ) {
-			if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+			$error = (int) ( $file['error'] ?? UPLOAD_ERR_NO_FILE );
+
+			if ( $error === UPLOAD_ERR_NO_FILE ) {
 				continue;
+			}
+
+			if ( $error !== UPLOAD_ERR_OK ) {
+				return new WP_Error( 'upload_error', self::upload_error_message( $error, $max_mb ) );
+			}
+
+			if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+				return new WP_Error( 'upload_error', __( 'One of the attachments failed to upload.', 'licensesender' ) );
 			}
 
 			if ( count( $clean ) >= $max_files ) {
@@ -1736,10 +1812,6 @@ class LS_Support {
 						$max_files
 					)
 				);
-			}
-
-			if ( ! empty( $file['error'] ) && (int) $file['error'] !== UPLOAD_ERR_OK ) {
-				return new WP_Error( 'upload_error', __( 'One of the attachments failed to upload.', 'licensesender' ) );
 			}
 
 			$file_size = (int) ( $file['size'] ?? 0 );
@@ -1767,7 +1839,7 @@ class LS_Support {
 			}
 
 			$file['name'] = self::sanitize_upload_filename( $file['name'] ?? '' );
-			$check        = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'] );
+			$check        = wp_check_filetype_and_ext( $file['tmp_name'], $file['name'], $mime_map );
 			$ext          = strtolower( (string) ( $check['ext'] ?? '' ) );
 			if ( $ext === '' || ! in_array( $ext, $allowed, true ) ) {
 				return new WP_Error( 'upload_type', __( 'Unsupported attachment type.', 'licensesender' ) );
@@ -1780,7 +1852,40 @@ class LS_Support {
 	}
 
 	/**
+	 * Human-readable message for PHP upload error codes.
+	 *
+	 * @param int $error  UPLOAD_ERR_* code.
+	 * @param int $max_mb Max size shown to the user.
+	 * @return string
+	 */
+	public static function upload_error_message( $error, $max_mb = 10 ) {
+		$max_mb = max( 1, (int) $max_mb );
+
+		switch ( (int) $error ) {
+			case UPLOAD_ERR_INI_SIZE:
+			case UPLOAD_ERR_FORM_SIZE:
+				return sprintf(
+					/* translators: %d: max file size in MB */
+					__( 'One of the attachments exceeds the server upload limit (max %d MB).', 'licensesender' ),
+					$max_mb
+				);
+			case UPLOAD_ERR_PARTIAL:
+				return __( 'One of the attachments was only partially uploaded. Please try again.', 'licensesender' );
+			case UPLOAD_ERR_NO_TMP_DIR:
+				return __( 'Server temporary folder is missing. Please contact the site admin.', 'licensesender' );
+			case UPLOAD_ERR_CANT_WRITE:
+				return __( 'Server could not save the uploaded file. Please contact the site admin.', 'licensesender' );
+			case UPLOAD_ERR_EXTENSION:
+				return __( 'A server extension blocked the attachment upload.', 'licensesender' );
+			default:
+				return __( 'One of the attachments failed to upload.', 'licensesender' );
+		}
+	}
+
+	/**
 	 * Normalize $_FILES for multiple attachments.
+	 *
+	 * Failed uploads (non-OK error codes) are kept so validate_uploads can report them.
 	 *
 	 * @return array<int, array>
 	 */
@@ -1791,19 +1896,21 @@ class LS_Support {
 
 		$input = $_FILES['attachments'];
 		if ( empty( $input['name'] ) || ! is_array( $input['name'] ) ) {
-			return isset( $input['tmp_name'] ) ? array( $input ) : array();
+			return isset( $input['tmp_name'] ) || isset( $input['error'] ) ? array( $input ) : array();
 		}
 
 		$files = array();
 		foreach ( $input['name'] as $index => $name ) {
-			if ( empty( $input['tmp_name'][ $index ] ) ) {
+			$error = (int) ( $input['error'][ $index ] ?? UPLOAD_ERR_NO_FILE );
+			if ( $error === UPLOAD_ERR_NO_FILE && empty( $input['tmp_name'][ $index ] ) && (string) $name === '' ) {
 				continue;
 			}
+
 			$files[] = array(
 				'name'     => $name,
 				'type'     => $input['type'][ $index ] ?? '',
-				'tmp_name' => $input['tmp_name'][ $index ],
-				'error'    => $input['error'][ $index ] ?? 0,
+				'tmp_name' => $input['tmp_name'][ $index ] ?? '',
+				'error'    => $error,
 				'size'     => $input['size'][ $index ] ?? 0,
 			);
 		}

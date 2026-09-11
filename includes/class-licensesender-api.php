@@ -1439,6 +1439,46 @@ class Licensesender_Api {
     }
 
     /**
+     * Issue/refresh a customer access token via merchant API key.
+     *
+     * @param string $ticket_number  Ticket number.
+     * @param string $customer_email Ticket customer email.
+     * @return array<string, mixed>
+     */
+    public static function issue_support_ticket_access_token( $ticket_number, $customer_email ) {
+        $ticket_number  = sanitize_text_field( (string) $ticket_number );
+        $customer_email = sanitize_email( (string) $customer_email );
+
+        if ( $ticket_number === '' || $customer_email === '' ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'Missing ticket credentials.', 'licensesender' ),
+                'http_code' => 400,
+            );
+        }
+
+        $response = static::request_post(
+            'support/tickets/' . rawurlencode( $ticket_number ) . '/customer-access-token',
+            array(
+                'customer_email' => $customer_email,
+            )
+        );
+
+        if ( empty( $response['success'] ) ) {
+            return $response;
+        }
+
+        $data = is_array( $response['data'] ?? null ) ? $response['data'] : array();
+        $token = trim( (string) ( $data['access_token'] ?? $response['access_token'] ?? '' ) );
+        if ( $token !== '' ) {
+            $response['access_token'] = $token;
+            $response['data']         = array_merge( $data, array( 'access_token' => $token ) );
+        }
+
+        return $response;
+    }
+
+    /**
      * Customer reply to a support ticket.
      *
      * @param string               $ticket_number Ticket number.
