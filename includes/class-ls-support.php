@@ -1079,8 +1079,8 @@ class LS_Support {
 			self::persist_ticket_access( $user_id, $ticket_number, $email, $ticket_res['ticket'] );
 		}
 
-		$ticket    = is_array( $ticket_res['ticket'] ?? null ) ? $ticket_res['ticket'] : array();
-		$saved     = self::get_saved_tickets( $user_id )[ $ticket_number ] ?? array();
+		$ticket = is_array( $ticket_res['ticket'] ?? null ) ? $ticket_res['ticket'] : array();
+		$saved  = self::get_saved_tickets( $user_id )[ $ticket_number ] ?? array();
 
 		if ( empty( $ticket_res['success'] ) && empty( $ticket ) && empty( $saved ) ) {
 			return array(
@@ -1089,6 +1089,17 @@ class LS_Support {
 				'http_code' => (int) ( $ticket_res['http_code'] ?? 404 ),
 			);
 		}
+
+		// SaaS email is authoritative when present.
+		$ticket_email = sanitize_email( (string) ( $ticket['customer_email'] ?? '' ) );
+		if ( $ticket_email !== '' && strcasecmp( $ticket_email, $email ) !== 0 ) {
+			return array(
+				'success'   => false,
+				'message'   => __( 'You do not have access to this ticket.', 'licensesender' ),
+				'http_code' => 403,
+			);
+		}
+		$token_email = $ticket_email !== '' ? $ticket_email : $email;
 
 		$user      = get_userdata( $user_id );
 		$user_name = $user instanceof WP_User ? ( $user->display_name ?: $user->user_login ) : '';
@@ -1124,38 +1135,53 @@ class LS_Support {
 
 		$token = self::get_ticket_access_token( $user_id, $ticket_number );
 		if ( $token === '' ) {
-			$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number );
+			$token = self::ensure_ticket_access_token( $user_id, $token_email, $ticket_number );
 		}
 
 		if ( $token !== '' ) {
 			$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
 			if ( empty( $result['success'] ) && self::is_invalid_or_missing_ticket_access_token_error( $result ) ) {
-				$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number, true );
+				$token = self::ensure_ticket_access_token( $user_id, $token_email, $ticket_number, true );
 				if ( $token !== '' ) {
 					$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
 				}
 			}
 			if ( ! empty( $result['success'] ) ) {
-				$messages = self::filter_customer_messages( $result['messages'] ?? array() );
-				$messages = self::prepare_messages_for_display( $messages );
-				$summary  = self::sync_ticket_activity( $user_id, $ticket_number, $messages, $summary );
-				self::persist_ticket_snapshot(
+				return self::finalize_customer_conversation(
 					$user_id,
+					$token_email,
 					$ticket_number,
-					$email,
-					array_merge( $ticket, $summary, array( 'messages' => $messages ) )
+					$ticket,
+					$summary,
+					$result['messages'] ?? array()
 				);
-
-				$result['can_reply'] = self::ticket_allows_customer_reply( (string) ( $summary['status'] ?? '' ) );
-				$result['subject']   = (string) ( $summary['subject'] ?? '' );
-				$result['ticket']    = $summary;
-				$result['messages']  = $messages;
-				return $result;
 			}
 		}
 
-		// Do not fall back to merchant ticket messages (may include internal notes /
-		// token-less attachment URLs). Prefer a forced token refresh already attempted above.
+		// Ownership + email already verified. If the customer-token API is unavailable
+		// (not deployed yet / stale token service), load public messages via merchant
+		// ticket payload and strip internal notes. Attachments need a token when possible.
+		if ( $token === '' ) {
+			$token = self::ensure_ticket_access_token( $user_id, $token_email, $ticket_number, true );
+		}
+
+		$raw_messages = is_array( $ticket['messages'] ?? null ) ? $ticket['messages'] : array();
+		if ( $raw_messages !== [] ) {
+			$messages = self::filter_customer_messages( $raw_messages );
+			if ( $token !== '' ) {
+				$messages = self::append_access_token_to_attachments( $messages, $token );
+			}
+
+			return self::finalize_customer_conversation(
+				$user_id,
+				$token_email,
+				$ticket_number,
+				$ticket,
+				$summary,
+				$messages
+			);
+		}
+
 		return array(
 			'success'   => false,
 			'message'   => __( 'Unable to load this ticket conversation. Please refresh and try again.', 'licensesender' ),
@@ -1165,6 +1191,119 @@ class LS_Support {
 			'subject'   => '',
 			'ticket'    => array(),
 		);
+	}
+
+	/**
+	 * @param int                              $user_id User ID.
+	 * @param string                           $email Customer email.
+	 * @param string                           $ticket_number Ticket number.
+	 * @param array<string, mixed>             $ticket Ticket payload.
+	 * @param array<string, mixed>             $summary Ticket summary.
+	 * @param array<int, array<string, mixed>> $messages Message list.
+	 * @return array<string, mixed>
+	 */
+	private static function finalize_customer_conversation( $user_id, $email, $ticket_number, array $ticket, array $summary, array $messages ) {
+		$messages = self::prepare_messages_for_display( $messages );
+		$summary  = self::sync_ticket_activity( $user_id, $ticket_number, $messages, $summary );
+		self::persist_ticket_snapshot(
+			$user_id,
+			$ticket_number,
+			$email,
+			array_merge( $ticket, $summary, array( 'messages' => $messages ) )
+		);
+
+		return array(
+			'success'   => true,
+			'can_reply' => self::ticket_allows_customer_reply( (string) ( $summary['status'] ?? '' ) ),
+			'subject'   => (string) ( $summary['subject'] ?? '' ),
+			'ticket'    => $summary,
+			'messages'  => $messages,
+		);
+	}
+
+	/**
+	 * Ensure attachment preview/download URLs carry the customer access token.
+	 *
+	 * @param array<int, array<string, mixed>> $messages Message list.
+	 * @param string                           $token Access token.
+	 * @return array<int, array<string, mixed>>
+	 */
+	private static function append_access_token_to_attachments( array $messages, $token ) {
+		$token = trim( (string) $token );
+		if ( $token === '' ) {
+			return $messages;
+		}
+
+		foreach ( $messages as &$message ) {
+			if ( ! is_array( $message ) || empty( $message['attachments'] ) || ! is_array( $message['attachments'] ) ) {
+				continue;
+			}
+
+			foreach ( $message['attachments'] as &$attachment ) {
+				if ( ! is_array( $attachment ) ) {
+					continue;
+				}
+
+				foreach ( array( 'url', 'download_url' ) as $key ) {
+					$url = trim( (string) ( $attachment[ $key ] ?? '' ) );
+					if ( $url === '' ) {
+						continue;
+					}
+
+					$attachment[ $key ] = self::url_with_access_token( $url, $token );
+				}
+			}
+			unset( $attachment );
+		}
+		unset( $message );
+
+		return $messages;
+	}
+
+	/**
+	 * @param string $url Existing URL.
+	 * @param string $token Access token.
+	 * @return string
+	 */
+	private static function url_with_access_token( $url, $token ) {
+		$url   = (string) $url;
+		$token = trim( (string) $token );
+		if ( $url === '' || $token === '' ) {
+			return $url;
+		}
+
+		$parts = wp_parse_url( $url );
+		if ( ! is_array( $parts ) ) {
+			return $url;
+		}
+
+		$query = array();
+		if ( ! empty( $parts['query'] ) ) {
+			parse_str( (string) $parts['query'], $query );
+		}
+
+		$query['access_token'] = $token;
+		$parts['query']        = http_build_query( $query );
+
+		$built = '';
+		if ( ! empty( $parts['scheme'] ) ) {
+			$built .= $parts['scheme'] . '://';
+		}
+		if ( ! empty( $parts['host'] ) ) {
+			$built .= $parts['host'];
+		}
+		if ( ! empty( $parts['port'] ) ) {
+			$built .= ':' . $parts['port'];
+		}
+		$built .= (string) ( $parts['path'] ?? '' );
+		if ( ! empty( $parts['query'] ) ) {
+			$built .= '?' . $parts['query'];
+		}
+		if ( ! empty( $parts['fragment'] ) ) {
+			$built .= '#' . $parts['fragment'];
+		}
+
+		return $built !== '' ? $built : $url;
 	}
 
 	/**
