@@ -1140,6 +1140,8 @@ class LS_Support {
 
 		if ( $token !== '' ) {
 			$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
+			// Only rotate when the stored token is rejected — never rotate on a healthy session
+			// (rotation invalidates attachment URLs already embedded in message payloads).
 			if ( empty( $result['success'] ) && self::is_invalid_or_missing_ticket_access_token_error( $result ) ) {
 				$token = self::ensure_ticket_access_token( $user_id, $token_email, $ticket_number, true );
 				if ( $token !== '' ) {
@@ -1153,7 +1155,8 @@ class LS_Support {
 					$ticket_number,
 					$ticket,
 					$summary,
-					$result['messages'] ?? array()
+					$result['messages'] ?? array(),
+					$token
 				);
 			}
 		}
@@ -1168,9 +1171,6 @@ class LS_Support {
 		$raw_messages = is_array( $ticket['messages'] ?? null ) ? $ticket['messages'] : array();
 		if ( $raw_messages !== [] ) {
 			$messages = self::filter_customer_messages( $raw_messages );
-			if ( $token !== '' ) {
-				$messages = self::append_access_token_to_attachments( $messages, $token );
-			}
 
 			return self::finalize_customer_conversation(
 				$user_id,
@@ -1178,7 +1178,8 @@ class LS_Support {
 				$ticket_number,
 				$ticket,
 				$summary,
-				$messages
+				$messages,
+				$token
 			);
 		}
 
@@ -1200,9 +1201,14 @@ class LS_Support {
 	 * @param array<string, mixed>             $ticket Ticket payload.
 	 * @param array<string, mixed>             $summary Ticket summary.
 	 * @param array<int, array<string, mixed>> $messages Message list.
+	 * @param string                           $token Currently validated customer access token.
 	 * @return array<string, mixed>
 	 */
-	private static function finalize_customer_conversation( $user_id, $email, $ticket_number, array $ticket, array $summary, array $messages ) {
+	private static function finalize_customer_conversation( $user_id, $email, $ticket_number, array $ticket, array $summary, array $messages, $token = '' ) {
+		// Always rewrite attachment URLs with the token that just authenticated this session.
+		// SaaS may embed a token at format time, but any later rotation (or merchant payloads
+		// without a token) leaves browser <img> requests with a stale/missing access_token.
+		$messages = self::append_access_token_to_attachments( $messages, $token );
 		$messages = self::prepare_messages_for_display( $messages );
 		$summary  = self::sync_ticket_activity( $user_id, $ticket_number, $messages, $summary );
 		self::persist_ticket_snapshot(
@@ -1244,13 +1250,21 @@ class LS_Support {
 					continue;
 				}
 
-				foreach ( array( 'url', 'download_url' ) as $key ) {
-					$url = trim( (string) ( $attachment[ $key ] ?? '' ) );
-					if ( $url === '' ) {
-						continue;
-					}
+				$download = trim( (string) ( $attachment['download_url'] ?? '' ) );
+				$view     = trim( (string) ( $attachment['url'] ?? '' ) );
 
-					$attachment[ $key ] = self::url_with_access_token( $url, $token );
+				if ( $download !== '' ) {
+					$attachment['download_url'] = self::url_with_access_token( $download, $token, false );
+				}
+
+				if ( $view !== '' ) {
+					$attachment['url'] = self::url_with_access_token( $view, $token, true );
+				} elseif ( $download !== '' ) {
+					$attachment['url'] = self::url_with_access_token( $download, $token, true );
+				}
+
+				if ( empty( $attachment['download_url'] ) && ! empty( $attachment['url'] ) ) {
+					$attachment['download_url'] = self::url_with_access_token( (string) $attachment['url'], $token, false );
 				}
 			}
 			unset( $attachment );
@@ -1261,11 +1275,17 @@ class LS_Support {
 	}
 
 	/**
+	 * Rebuild a URL with the current access token (and optional inline preview flag).
+	 *
+	 * Uses rawurlencode for query values so tokens stay URL-safe without http_build_query
+	 * turning spaces into "+" (which can break hash verification if tokens ever contain them).
+	 *
 	 * @param string $url Existing URL.
 	 * @param string $token Access token.
+	 * @param bool   $ensure_inline When true, force inline=1 (preview). When false, strip it (download).
 	 * @return string
 	 */
-	private static function url_with_access_token( $url, $token ) {
+	private static function url_with_access_token( $url, $token, $ensure_inline = false ) {
 		$url   = (string) $url;
 		$token = trim( (string) $token );
 		if ( $url === '' || $token === '' ) {
@@ -1283,7 +1303,20 @@ class LS_Support {
 		}
 
 		$query['access_token'] = $token;
-		$parts['query']        = http_build_query( $query );
+		if ( $ensure_inline ) {
+			$query['inline'] = '1';
+		} else {
+			unset( $query['inline'] );
+		}
+
+		$pairs = array();
+		foreach ( $query as $key => $value ) {
+			if ( is_array( $value ) ) {
+				continue;
+			}
+			$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
+		}
+		$parts['query'] = implode( '&', $pairs );
 
 		$built = '';
 		if ( ! empty( $parts['scheme'] ) ) {
