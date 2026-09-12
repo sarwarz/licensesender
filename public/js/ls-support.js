@@ -99,6 +99,18 @@
     });
   }
 
+  function ajaxErrorMessage(xhr, fallback) {
+    if (xhr && xhr.responseJSON) {
+      if (xhr.responseJSON.data && xhr.responseJSON.data.message) {
+        return String(xhr.responseJSON.data.message);
+      }
+      if (xhr.responseJSON.message) {
+        return String(xhr.responseJSON.message);
+      }
+    }
+    return fallback || cfg.i18n.error;
+  }
+
   function postJson(action, data) {
     return $.ajax({
       url: cfg.ajaxUrl,
@@ -227,8 +239,8 @@
             }, 600);
           }
         })
-        .fail(function () {
-          setMessage($message, 'error', cfg.i18n.error);
+        .fail(function (xhr) {
+          setMessage($message, 'error', ajaxErrorMessage(xhr, cfg.i18n.error));
         })
         .always(function () {
           $btn.prop('disabled', false);
@@ -554,13 +566,13 @@
           !!res.data.can_reply
         );
       })
-      .fail(function () {
+      .fail(function (xhr) {
         $('.ls-support-ticket-page').removeClass('is-loading');
         $('#ls-support-ticket-header').removeAttr('hidden');
         $('#ls-support-ticket-sidebar').removeAttr('hidden');
         $('#ls-support-ticket-content').html(
           '<div class="ls-support-loading-panel">' +
-            '<div class="ls-support-empty-list">' + escapeHtml(cfg.i18n.error) + '</div>' +
+            '<div class="ls-support-empty-list">' + escapeHtml(ajaxErrorMessage(xhr, cfg.i18n.error)) + '</div>' +
           '</div>'
         );
       });
@@ -671,8 +683,8 @@
             !!res.data.can_reply
           );
         })
-        .fail(function () {
-          setMessage($message, 'error', cfg.i18n.error);
+        .fail(function (xhr) {
+          setMessage($message, 'error', ajaxErrorMessage(xhr, cfg.i18n.error));
         })
         .always(function () {
           $btn.prop('disabled', false);

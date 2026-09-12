@@ -479,7 +479,7 @@ class LS_Support_Shortcodes {
 
 		if ( empty( $result['success'] ) ) {
 			wp_send_json_error(
-				array( 'message' => (string) ( $result['message'] ?? __( 'Could not create ticket.', 'licensesender' ) ) ),
+				array( 'message' => self::customer_error_message( $result, __( 'Could not create ticket.', 'licensesender' ) ) ),
 				400
 			);
 		}
@@ -573,7 +573,7 @@ class LS_Support_Shortcodes {
 		$result = LS_Support::get_customer_conversation( $user->ID, $user->user_email, $ticket_number );
 		if ( empty( $result['success'] ) ) {
 			wp_send_json_error(
-				array( 'message' => (string) ( $result['message'] ?? __( 'Could not load conversation.', 'licensesender' ) ) ),
+				array( 'message' => self::customer_error_message( $result, __( 'Could not load conversation.', 'licensesender' ) ) ),
 				(int) ( $result['http_code'] ?? 400 )
 			);
 		}
@@ -626,7 +626,7 @@ class LS_Support_Shortcodes {
 
 		if ( empty( $result['success'] ) ) {
 			wp_send_json_error(
-				array( 'message' => (string) ( $result['message'] ?? __( 'Could not send reply.', 'licensesender' ) ) ),
+				array( 'message' => self::customer_error_message( $result, __( 'Could not send reply.', 'licensesender' ) ) ),
 				(int) ( $result['http_code'] ?? 400 )
 			);
 		}
@@ -674,6 +674,58 @@ class LS_Support_Shortcodes {
 		if ( ! is_user_logged_in() ) {
 			wp_send_json_error( array( 'message' => __( 'You must be logged in.', 'licensesender' ) ), 401 );
 		}
+
+		if ( ! LS_Support::is_enabled() ) {
+			wp_send_json_error( array( 'message' => __( 'Support tickets are currently disabled.', 'licensesender' ) ), 403 );
+		}
+	}
+
+	/**
+	 * Customer-safe error text (never leak raw SaaS/transport details).
+	 *
+	 * @param array<string, mixed> $result API/plugin result.
+	 * @param string               $fallback Fallback message.
+	 * @return string
+	 */
+	private static function customer_error_message( array $result, $fallback = '' ) {
+		$fallback = $fallback !== '' ? (string) $fallback : __( 'Something went wrong. Please try again.', 'licensesender' );
+		$message  = trim( (string) ( $result['message'] ?? '' ) );
+
+		if ( $message === '' ) {
+			return $fallback;
+		}
+
+		$allowed_fragments = array(
+			'you do not have access',
+			'invalid ticket',
+			'closed',
+			'cannot receive',
+			'attach',
+			'upload',
+			'unsupported',
+			'too large',
+			'required',
+			'missing',
+			'disabled',
+			'logged in',
+			'reply',
+			'ticket cannot',
+			'unable to load',
+			'refresh',
+		);
+
+		$lower = strtolower( $message );
+		foreach ( $allowed_fragments as $fragment ) {
+			if ( str_contains( $lower, $fragment ) ) {
+				return wp_strip_all_tags( $message );
+			}
+		}
+
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+			error_log( '[licensesender support] ' . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+		}
+
+		return $fallback;
 	}
 
 	private static function enqueue_assets( $with_editor = false ) {

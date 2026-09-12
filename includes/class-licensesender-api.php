@@ -1137,8 +1137,10 @@ class Licensesender_Api {
             }
 
             $index = 0;
+            $skipped = 0;
             foreach ( $files as $file ) {
                 if ( empty( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
+                    $skipped++;
                     continue;
                 }
 
@@ -1151,6 +1153,14 @@ class Licensesender_Api {
                 $type = ! empty( $file['type'] ) ? (string) $file['type'] : 'application/octet-stream';
                 $post_fields[ 'attachments[' . $index . ']' ] = new CURLFile( $file['tmp_name'], $type, $filename );
                 $index++;
+            }
+
+            if ( $files !== array() && $index === 0 ) {
+                return new WP_Error( 'upload_empty', __( 'Attachments could not be read for upload. Please try again.', 'licensesender' ) );
+            }
+
+            if ( $skipped > 0 && $index > 0 ) {
+                return new WP_Error( 'upload_partial', __( 'One or more attachments could not be uploaded. Please try again.', 'licensesender' ) );
             }
 
             $curl_headers = array();
@@ -1192,6 +1202,16 @@ class Licensesender_Api {
                 'body'      => (string) $body,
                 'http_code' => $code,
             );
+        }
+
+        // Prefer CURLFile. String multipart can corrupt binary PNG/PDF on some hosts.
+        if ( ! function_exists( 'curl_init' ) || ! class_exists( 'CURLFile' ) ) {
+            if ( $files !== array() ) {
+                return new WP_Error(
+                    'upload_unsupported',
+                    __( 'This server cannot upload ticket attachments securely. Please ask the site admin to enable PHP cURL.', 'licensesender' )
+                );
+            }
         }
 
         // Fallback: raw multipart string. May corrupt binary files if transport truncates at NUL.
@@ -1305,6 +1325,10 @@ class Licensesender_Api {
      */
     public static function list_support_tickets( array $args = array() ) {
         $query = array();
+
+        if ( ! empty( $args['customer_email'] ) ) {
+            $query['customer_email'] = sanitize_email( (string) $args['customer_email'] );
+        }
 
         if ( ! empty( $args['status'] ) ) {
             $query['status'] = sanitize_key( (string) $args['status'] );

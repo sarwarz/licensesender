@@ -744,7 +744,6 @@ class LS_Support {
 			'portal_token',
 			'accessToken',
 			'ticketAccessToken',
-			'token',
 		) as $key ) {
 			if ( ! empty( $payload[ $key ] ) && is_scalar( $payload[ $key ] ) ) {
 				return trim( (string) $payload[ $key ] );
@@ -829,7 +828,7 @@ class LS_Support {
 		}
 
 		$token = '';
-		foreach ( array( 'access_token', 'ticket_access_token', 'token', 'portal_token' ) as $key ) {
+		foreach ( array( 'access_token', 'ticket_access_token', 'portal_token' ) as $key ) {
 			if ( empty( $_GET[ $key ] ) ) {
 				continue;
 			}
@@ -844,17 +843,7 @@ class LS_Support {
 			return;
 		}
 
-		if ( self::customer_owns_ticket( $user_id, $email, $ticket_number ) ) {
-			self::save_ticket_access(
-				$user_id,
-				$ticket_number,
-				array(
-					'access_token' => $token,
-				)
-			);
-			return;
-		}
-
+		// Always verify with SaaS + email match before saving (prevents token poisoning).
 		self::claim_ticket_with_access_token( $user_id, $email, $ticket_number, $token );
 	}
 
@@ -874,7 +863,7 @@ class LS_Support {
 		}
 
 		$token = '';
-		foreach ( array( 'access_token', 'ticket_access_token', 'token', 'portal_token' ) as $key ) {
+		foreach ( array( 'access_token', 'ticket_access_token', 'portal_token' ) as $key ) {
 			if ( empty( $_POST[ $key ] ) ) {
 				continue;
 			}
@@ -886,17 +875,6 @@ class LS_Support {
 		}
 
 		if ( $token === '' ) {
-			return;
-		}
-
-		if ( self::customer_owns_ticket( $user_id, $email, $ticket_number ) ) {
-			self::save_ticket_access(
-				$user_id,
-				$ticket_number,
-				array(
-					'access_token' => $token,
-				)
-			);
 			return;
 		}
 
@@ -983,7 +961,8 @@ class LS_Support {
 		}
 
 		$saved_email = sanitize_email( (string) ( $saved_entry['customer_email'] ?? '' ) );
-		if ( $saved_email !== '' && strcasecmp( $saved_email, $email ) !== 0 ) {
+		// Require a stored email match (empty email must not grant access).
+		if ( $saved_email === '' || strcasecmp( $saved_email, $email ) !== 0 ) {
 			return false;
 		}
 
@@ -1020,7 +999,7 @@ class LS_Support {
 			: array();
 
 		$ticket_email = sanitize_email( (string) ( $ticket['customer_email'] ?? '' ) );
-		if ( $ticket_email !== '' && strcasecmp( $ticket_email, $email ) !== 0 ) {
+		if ( $ticket_email === '' || strcasecmp( $ticket_email, $email ) !== 0 ) {
 			return false;
 		}
 
@@ -1150,6 +1129,12 @@ class LS_Support {
 
 		if ( $token !== '' ) {
 			$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
+			if ( empty( $result['success'] ) && self::is_invalid_or_missing_ticket_access_token_error( $result ) ) {
+				$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number, true );
+				if ( $token !== '' ) {
+					$result = Licensesender_Api::get_support_conversation( $ticket_number, $token );
+				}
+			}
 			if ( ! empty( $result['success'] ) ) {
 				$messages = self::filter_customer_messages( $result['messages'] ?? array() );
 				$messages = self::prepare_messages_for_display( $messages );
@@ -1169,38 +1154,16 @@ class LS_Support {
 			}
 		}
 
-		$messages = $ticket['messages'] ?? $ticket['conversation'] ?? array();
-		if ( ! is_array( $messages ) ) {
-			$messages = array();
-		}
-
-		$messages = self::filter_customer_messages( $messages );
-		if ( empty( $messages ) ) {
-			$initial = trim( (string) ( $ticket['message'] ?? $ticket['initial_message'] ?? $ticket['body'] ?? '' ) );
-			if ( $initial !== '' ) {
-				$messages[] = array(
-					'message'     => $initial,
-					'author_type' => 'customer',
-					'created_at'  => (string) ( $ticket['created_at'] ?? '' ),
-				);
-			}
-		}
-
-		$messages = self::prepare_messages_for_display( $messages );
-		$summary  = self::sync_ticket_activity( $user_id, $ticket_number, $messages, $summary );
-		self::persist_ticket_snapshot(
-			$user_id,
-			$ticket_number,
-			$email,
-			array_merge( $ticket, $summary, array( 'messages' => $messages ) )
-		);
-
+		// Do not fall back to merchant ticket messages (may include internal notes /
+		// token-less attachment URLs). Prefer a forced token refresh already attempted above.
 		return array(
-			'success'   => true,
-			'messages'  => $messages,
-			'can_reply' => self::ticket_allows_customer_reply( (string) ( $summary['status'] ?? '' ) ),
-			'subject'   => (string) ( $summary['subject'] ?? '' ),
-			'ticket'    => $summary,
+			'success'   => false,
+			'message'   => __( 'Unable to load this ticket conversation. Please refresh and try again.', 'licensesender' ),
+			'http_code' => 403,
+			'messages'  => array(),
+			'can_reply' => false,
+			'subject'   => '',
+			'ticket'    => array(),
 		);
 	}
 
@@ -1266,7 +1229,21 @@ class LS_Support {
 
 		if ( $token !== '' ) {
 			$result = Licensesender_Api::reply_support_ticket( $ticket_number, $token, $message, $files );
-			if ( ! empty( $result['success'] ) || ! self::is_missing_ticket_access_token_error( $result ) ) {
+			if ( ! empty( $result['success'] ) ) {
+				return $result;
+			}
+
+			// Stale WP-stored tokens return "Invalid…"; missing tokens return "Missing…".
+			if ( self::is_invalid_or_missing_ticket_access_token_error( $result ) ) {
+				$token = self::ensure_ticket_access_token( $user_id, $email, $ticket_number, true );
+				if ( $token !== '' ) {
+					$retry = Licensesender_Api::reply_support_ticket( $ticket_number, $token, $message, $files );
+					if ( ! empty( $retry['success'] ) ) {
+						return $retry;
+					}
+					$result = $retry;
+				}
+			} else {
 				return $result;
 			}
 		}
@@ -1274,25 +1251,18 @@ class LS_Support {
 		$user      = get_userdata( $user_id );
 		$user_name = $user instanceof WP_User ? ( $user->display_name ?: $user->user_login ) : '';
 
-		$result = Licensesender_Api::reply_support_ticket_as_customer( $ticket_number, $email, $message, $files );
+		$result = Licensesender_Api::reply_support_ticket_for_shop_customer(
+			$ticket_number,
+			$email,
+			$user_name,
+			$message,
+			$files
+		);
 		if ( ! empty( $result['success'] ) ) {
 			return $result;
 		}
 
-		if ( self::is_missing_ticket_access_token_error( $result ) ) {
-			$result = Licensesender_Api::reply_support_ticket_for_shop_customer(
-				$ticket_number,
-				$email,
-				$user_name,
-				$message,
-				$files
-			);
-			if ( ! empty( $result['success'] ) ) {
-				return $result;
-			}
-		}
-
-		if ( self::is_missing_ticket_access_token_error( $result ) ) {
+		if ( self::is_invalid_or_missing_ticket_access_token_error( $result ) ) {
 			$result['message'] = __( 'This ticket cannot be replied to yet. Open it from your ticket confirmation email once, or create a new ticket from this site.', 'licensesender' );
 		}
 
@@ -1310,14 +1280,26 @@ class LS_Support {
 	}
 
 	/**
-	 * Issue/refresh a SaaS customer access token when the local copy is missing.
+	 * @param array<string, mixed> $result API response.
+	 * @return bool
+	 */
+	public static function is_invalid_or_missing_ticket_access_token_error( array $result ) {
+		$message = strtolower( (string) ( $result['message'] ?? '' ) );
+
+		return str_contains( $message, 'missing ticket access token' )
+			|| str_contains( $message, 'invalid ticket access token' );
+	}
+
+	/**
+	 * Issue/refresh a SaaS customer access token when missing or forced.
 	 *
 	 * @param int    $user_id       WP user ID.
 	 * @param string $email         Customer email.
 	 * @param string $ticket_number Ticket number.
+	 * @param bool   $force         When true, rotate even if a local token exists.
 	 * @return string
 	 */
-	public static function ensure_ticket_access_token( $user_id, $email, $ticket_number ) {
+	public static function ensure_ticket_access_token( $user_id, $email, $ticket_number, $force = false ) {
 		$user_id       = (int) $user_id;
 		$email         = sanitize_email( (string) $email );
 		$ticket_number = sanitize_text_field( (string) $ticket_number );
@@ -1326,9 +1308,11 @@ class LS_Support {
 			return '';
 		}
 
-		$existing = self::get_ticket_access_token( $user_id, $ticket_number );
-		if ( $existing !== '' ) {
-			return $existing;
+		if ( ! $force ) {
+			$existing = self::get_ticket_access_token( $user_id, $ticket_number );
+			if ( $existing !== '' ) {
+				return $existing;
+			}
 		}
 
 		$result = Licensesender_Api::issue_support_ticket_access_token( $ticket_number, $email );
@@ -1579,7 +1563,10 @@ class LS_Support {
 		$page       = max( 1, (int) ( $args['page'] ?? 1 ) );
 		$per_page   = max( 1, min( 100, (int) ( $args['per_page'] ?? 20 ) ) );
 
-		$api_query = array( 'per_page' => 100 );
+		$api_query = array(
+			'per_page'       => 100,
+			'customer_email' => $email,
+		);
 		if ( $status !== '' ) {
 			$api_query['status'] = $status;
 		}
@@ -1594,7 +1581,7 @@ class LS_Support {
 				}
 
 				$ticket_email = sanitize_email( (string) ( $ticket['customer_email'] ?? '' ) );
-				if ( $email !== '' && $ticket_email !== '' && strcasecmp( $ticket_email, $email ) !== 0 ) {
+				if ( $email === '' || $ticket_email === '' || strcasecmp( $ticket_email, $email ) !== 0 ) {
 					continue;
 				}
 
@@ -1843,6 +1830,10 @@ class LS_Support {
 			$ext          = strtolower( (string) ( $check['ext'] ?? '' ) );
 			if ( $ext === '' || ! in_array( $ext, $allowed, true ) ) {
 				return new WP_Error( 'upload_type', __( 'Unsupported attachment type.', 'licensesender' ) );
+			}
+
+			if ( ! empty( $check['type'] ) ) {
+				$file['type'] = (string) $check['type'];
 			}
 
 			$clean[] = $file;
