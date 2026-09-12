@@ -1537,6 +1537,94 @@ class Licensesender_Api {
     }
 
     /**
+     * Download a support attachment via merchant API key (no customer token).
+     *
+     * Returns raw bytes for the WP proxy to stream to the logged-in customer.
+     *
+     * @param string $ticket_number Ticket number.
+     * @param int    $attachment_id Attachment ID.
+     * @param bool   $inline        When true, request inline disposition.
+     * @return array{success:bool,message?:string,http_code:int,body?:string,content_type?:string,content_disposition?:string}
+     */
+    public static function download_support_attachment( $ticket_number, $attachment_id, $inline = false ) {
+        $ticket_number  = sanitize_text_field( (string) $ticket_number );
+        $attachment_id  = absint( $attachment_id );
+        $api_key        = static::get_api_key();
+
+        if ( $ticket_number === '' || ! $attachment_id ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'Missing attachment data.', 'licensesender' ),
+                'http_code' => 400,
+            );
+        }
+
+        if ( empty( $api_key ) ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'API key is missing. Please set it in licensesender settings.', 'licensesender' ),
+                'http_code' => 0,
+            );
+        }
+
+        $base = static::get_api_base_url();
+        if ( empty( trim( $base ) ) || strpos( $base, '://' ) === false ) {
+            return array(
+                'success'   => false,
+                'message'   => __( 'API base URL is missing or invalid. Please set it in licensesender settings.', 'licensesender' ),
+                'http_code' => 0,
+            );
+        }
+
+        $url = trailingslashit( $base ) . 'support/tickets/' . rawurlencode( $ticket_number ) . '/attachments/' . $attachment_id;
+        if ( $inline ) {
+            $url = add_query_arg( array( 'inline' => '1' ), $url );
+        }
+
+        $response = wp_remote_get(
+            $url,
+            array(
+                'headers' => array(
+                    'X-API-KEY' => $api_key,
+                    'Accept'    => '*/*',
+                ),
+                'timeout' => 60,
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            return array(
+                'success'   => false,
+                'message'   => 'Request failed: ' . $response->get_error_message(),
+                'http_code' => 0,
+            );
+        }
+
+        $http_code = (int) wp_remote_retrieve_response_code( $response );
+        $body      = wp_remote_retrieve_body( $response );
+        $type      = (string) wp_remote_retrieve_header( $response, 'content-type' );
+        $disposition = (string) wp_remote_retrieve_header( $response, 'content-disposition' );
+
+        if ( $http_code < 200 || $http_code >= 300 ) {
+            $data    = json_decode( $body, true );
+            $message = is_array( $data ) ? (string) ( $data['message'] ?? '' ) : '';
+            return array(
+                'success'   => false,
+                'message'   => $message !== '' ? $message : __( 'Attachment download failed.', 'licensesender' ),
+                'http_code' => $http_code,
+            );
+        }
+
+        return array(
+            'success'             => true,
+            'http_code'           => $http_code,
+            'body'                => $body,
+            'content_type'        => $type !== '' ? $type : 'application/octet-stream',
+            'content_disposition' => $disposition,
+        );
+    }
+
+    /**
      * Customer reply via connected shop (logged-in customer, no portal token).
      *
      * @param string               $ticket_number Ticket number.

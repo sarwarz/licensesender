@@ -25,6 +25,7 @@ class LS_Support_Shortcodes {
 		add_action( 'wp_ajax_ls_support_get_conversation', array( __CLASS__, 'ajax_get_conversation' ) );
 		add_action( 'wp_ajax_ls_support_reply_ticket', array( __CLASS__, 'ajax_reply_ticket' ) );
 		add_action( 'wp_ajax_ls_support_order_keys', array( __CLASS__, 'ajax_order_keys' ) );
+		add_action( 'wp_ajax_ls_support_attachment', array( 'LS_Support', 'ajax_proxy_attachment' ) );
 
 		add_action( 'woocommerce_login_form_start', array( __CLASS__, 'output_auth_redirect_field' ) );
 		add_action( 'woocommerce_register_form_start', array( __CLASS__, 'output_auth_redirect_field' ) );

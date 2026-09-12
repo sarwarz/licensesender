@@ -1205,10 +1205,9 @@ class LS_Support {
 	 * @return array<string, mixed>
 	 */
 	private static function finalize_customer_conversation( $user_id, $email, $ticket_number, array $ticket, array $summary, array $messages, $token = '' ) {
-		// Always rewrite attachment URLs with the token that just authenticated this session.
-		// SaaS may embed a token at format time, but any later rotation (or merchant payloads
-		// without a token) leaves browser <img> requests with a stale/missing access_token.
-		$messages = self::append_access_token_to_attachments( $messages, $token );
+		unset( $token );
+		// Serve attachments through the WP proxy so the browser never sees SaaS access_token URLs.
+		$messages = self::rewrite_attachments_to_proxy( $messages, $ticket_number );
 		$messages = self::prepare_messages_for_display( $messages );
 		$summary  = self::sync_ticket_activity( $user_id, $ticket_number, $messages, $summary );
 		self::persist_ticket_snapshot(
@@ -1228,17 +1227,19 @@ class LS_Support {
 	}
 
 	/**
-	 * Ensure attachment preview/download URLs carry the customer access token.
+	 * Point attachment preview/download URLs at the authenticated WP proxy.
 	 *
 	 * @param array<int, array<string, mixed>> $messages Message list.
-	 * @param string                           $token Access token.
+	 * @param string                           $ticket_number Ticket number.
 	 * @return array<int, array<string, mixed>>
 	 */
-	private static function append_access_token_to_attachments( array $messages, $token ) {
-		$token = trim( (string) $token );
-		if ( $token === '' ) {
+	private static function rewrite_attachments_to_proxy( array $messages, $ticket_number ) {
+		$ticket_number = sanitize_text_field( (string) $ticket_number );
+		if ( $ticket_number === '' ) {
 			return $messages;
 		}
+
+		$nonce = wp_create_nonce( 'ls_support' );
 
 		foreach ( $messages as &$message ) {
 			if ( ! is_array( $message ) || empty( $message['attachments'] ) || ! is_array( $message['attachments'] ) ) {
@@ -1250,22 +1251,14 @@ class LS_Support {
 					continue;
 				}
 
-				$download = trim( (string) ( $attachment['download_url'] ?? '' ) );
-				$view     = trim( (string) ( $attachment['url'] ?? '' ) );
-
-				if ( $download !== '' ) {
-					$attachment['download_url'] = self::url_with_access_token( $download, $token, false );
+				$attachment_id = self::resolve_attachment_id( $attachment );
+				if ( ! $attachment_id ) {
+					continue;
 				}
 
-				if ( $view !== '' ) {
-					$attachment['url'] = self::url_with_access_token( $view, $token, true );
-				} elseif ( $download !== '' ) {
-					$attachment['url'] = self::url_with_access_token( $download, $token, true );
-				}
-
-				if ( empty( $attachment['download_url'] ) && ! empty( $attachment['url'] ) ) {
-					$attachment['download_url'] = self::url_with_access_token( (string) $attachment['url'], $token, false );
-				}
+				$attachment['id']           = $attachment_id;
+				$attachment['url']          = self::proxy_attachment_url( $ticket_number, $attachment_id, $nonce, true );
+				$attachment['download_url'] = self::proxy_attachment_url( $ticket_number, $attachment_id, $nonce, false );
 			}
 			unset( $attachment );
 		}
@@ -1275,68 +1268,147 @@ class LS_Support {
 	}
 
 	/**
-	 * Rebuild a URL with the current access token (and optional inline preview flag).
+	 * @param array<string, mixed> $attachment Attachment payload.
+	 * @return int
+	 */
+	private static function resolve_attachment_id( array $attachment ) {
+		$id = absint( $attachment['id'] ?? 0 );
+		if ( $id > 0 ) {
+			return $id;
+		}
+
+		foreach ( array( 'url', 'download_url' ) as $key ) {
+			$url = (string) ( $attachment[ $key ] ?? '' );
+			if ( $url !== '' && preg_match( '#/attachments/(\d+)#', $url, $matches ) ) {
+				return absint( $matches[1] );
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Build the WP admin-ajax proxy URL for a ticket attachment.
 	 *
-	 * Uses rawurlencode for query values so tokens stay URL-safe without http_build_query
-	 * turning spaces into "+" (which can break hash verification if tokens ever contain them).
-	 *
-	 * @param string $url Existing URL.
-	 * @param string $token Access token.
-	 * @param bool   $ensure_inline When true, force inline=1 (preview). When false, strip it (download).
+	 * @param string $ticket_number Ticket number.
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $nonce Nonce.
+	 * @param bool   $inline Inline preview flag.
 	 * @return string
 	 */
-	private static function url_with_access_token( $url, $token, $ensure_inline = false ) {
-		$url   = (string) $url;
-		$token = trim( (string) $token );
-		if ( $url === '' || $token === '' ) {
-			return $url;
+	public static function proxy_attachment_url( $ticket_number, $attachment_id, $nonce = '', $inline = false ) {
+		$ticket_number = sanitize_text_field( (string) $ticket_number );
+		$attachment_id = absint( $attachment_id );
+		$nonce         = $nonce !== '' ? (string) $nonce : wp_create_nonce( 'ls_support' );
+
+		if ( $ticket_number === '' || ! $attachment_id ) {
+			return '';
 		}
 
-		$parts = wp_parse_url( $url );
-		if ( ! is_array( $parts ) ) {
-			return $url;
+		$args = array(
+			'action'         => 'ls_support_attachment',
+			'ticket_number'  => $ticket_number,
+			'attachment_id'  => $attachment_id,
+			'nonce'          => $nonce,
+		);
+		if ( $inline ) {
+			$args['inline'] = '1';
 		}
 
-		$query = array();
-		if ( ! empty( $parts['query'] ) ) {
-			parse_str( (string) $parts['query'], $query );
+		return add_query_arg( $args, admin_url( 'admin-ajax.php' ) );
+	}
+
+	/**
+	 * Authenticated proxy: stream a SaaS attachment to the logged-in ticket owner.
+	 */
+	public static function ajax_proxy_attachment() {
+		$nonce = isset( $_REQUEST['nonce'] )
+			? sanitize_text_field( wp_unslash( $_REQUEST['nonce'] ) )
+			: ( isset( $_REQUEST['_wpnonce'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['_wpnonce'] ) ) : '' );
+
+		if ( $nonce === '' || ! wp_verify_nonce( $nonce, 'ls_support' ) ) {
+			status_header( 403 );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'success' => false, 'message' => 'Forbidden.' ) );
+			exit;
 		}
 
-		$query['access_token'] = $token;
-		if ( $ensure_inline ) {
-			$query['inline'] = '1';
-		} else {
-			unset( $query['inline'] );
+		if ( ! is_user_logged_in() ) {
+			status_header( 401 );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'success' => false, 'message' => 'You must be logged in.' ) );
+			exit;
 		}
 
-		$pairs = array();
-		foreach ( $query as $key => $value ) {
-			if ( is_array( $value ) ) {
-				continue;
+		if ( ! self::is_enabled() ) {
+			status_header( 403 );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'success' => false, 'message' => 'Support is disabled.' ) );
+			exit;
+		}
+
+		$user           = wp_get_current_user();
+		$ticket_number  = sanitize_text_field( wp_unslash( $_REQUEST['ticket_number'] ?? '' ) );
+		$attachment_id  = absint( $_REQUEST['attachment_id'] ?? 0 );
+		$inline         = ! empty( $_REQUEST['inline'] );
+
+		if ( $ticket_number === '' || ! $attachment_id ) {
+			status_header( 400 );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'success' => false, 'message' => 'Missing attachment parameters.' ) );
+			exit;
+		}
+
+		if ( ! self::customer_owns_ticket( $user->ID, $user->user_email, $ticket_number ) ) {
+			status_header( 403 );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode( array( 'success' => false, 'message' => 'You do not have access to this ticket.' ) );
+			exit;
+		}
+
+		$result = Licensesender_Api::download_support_attachment( $ticket_number, $attachment_id, $inline );
+		if ( empty( $result['success'] ) ) {
+			$status = ! empty( $result['http_code'] ) ? (int) $result['http_code'] : 502;
+			if ( $status < 400 || $status > 599 ) {
+				$status = 502;
 			}
-			$pairs[] = rawurlencode( (string) $key ) . '=' . rawurlencode( (string) $value );
-		}
-		$parts['query'] = implode( '&', $pairs );
-
-		$built = '';
-		if ( ! empty( $parts['scheme'] ) ) {
-			$built .= $parts['scheme'] . '://';
-		}
-		if ( ! empty( $parts['host'] ) ) {
-			$built .= $parts['host'];
-		}
-		if ( ! empty( $parts['port'] ) ) {
-			$built .= ':' . $parts['port'];
-		}
-		$built .= (string) ( $parts['path'] ?? '' );
-		if ( ! empty( $parts['query'] ) ) {
-			$built .= '?' . $parts['query'];
-		}
-		if ( ! empty( $parts['fragment'] ) ) {
-			$built .= '#' . $parts['fragment'];
+			status_header( $status );
+			nocache_headers();
+			header( 'Content-Type: application/json; charset=utf-8' );
+			echo wp_json_encode(
+				array(
+					'success' => false,
+					'message' => (string) ( $result['message'] ?? 'Attachment download failed.' ),
+				)
+			);
+			exit;
 		}
 
-		return $built !== '' ? $built : $url;
+		$body         = (string) ( $result['body'] ?? '' );
+		$content_type = (string) ( $result['content_type'] ?? 'application/octet-stream' );
+		$disposition  = (string) ( $result['content_disposition'] ?? '' );
+
+		status_header( 200 );
+		nocache_headers();
+		header( 'Content-Type: ' . $content_type );
+		header( 'X-Content-Type-Options: nosniff' );
+		header( 'Cache-Control: private, no-store' );
+		if ( $disposition !== '' ) {
+			header( 'Content-Disposition: ' . $disposition );
+		} elseif ( $inline ) {
+			header( 'Content-Disposition: inline' );
+		} else {
+			header( 'Content-Disposition: attachment' );
+		}
+		header( 'Content-Length: ' . strlen( $body ) );
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary attachment stream
+		echo $body;
+		exit;
 	}
 
 	/**
