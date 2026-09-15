@@ -55,7 +55,7 @@ class Licensesender_Admin_Fetch_License {
 			wp_send_json_error( array( 'message' => __( 'No mapped SKU found for this product.', 'licensesender' ) ) );
 		}
 
-		$lock = ls_acquire_fetch_lock( $order_id, $product_id );
+		$lock = ls_acquire_fetch_lock( $order_id, $product_id, $mapped_sku );
 		if ( is_wp_error( $lock ) ) {
 			wp_send_json_error( array( 'message' => $lock->get_error_message() ) );
 		}
@@ -71,11 +71,11 @@ class Licensesender_Admin_Fetch_License {
 		);
 
 		if ( $existing >= $quantity ) {
-			ls_release_fetch_lock( $order_id, $product_id );
+			ls_release_fetch_lock( $order_id, $product_id, $mapped_sku );
 			wp_send_json_error( array( 'message' => __( 'License already fetched for this product.', 'licensesender' ) ) );
 		}
 
-		$need = $quantity - $existing;
+		$need = ls_api_quantity_for_product_fetch( $order, $product_id, $mapped_sku );
 
 		$api = Licensesender_Api::fetch_license(
 			array(
@@ -88,7 +88,7 @@ class Licensesender_Admin_Fetch_License {
 		);
 
 		if ( empty( $api['success'] ) ) {
-			ls_release_fetch_lock( $order_id, $product_id );
+			ls_release_fetch_lock( $order_id, $product_id, $mapped_sku );
 			wp_send_json_error(
 				array(
 					'message' => $api['message'] ?? __( 'API request failed.', 'licensesender' ),
@@ -101,7 +101,7 @@ class Licensesender_Admin_Fetch_License {
 		$product_info = $api['product'] ?? array();
 
 		if ( empty( $licenses ) ) {
-			ls_release_fetch_lock( $order_id, $product_id );
+			ls_release_fetch_lock( $order_id, $product_id, $mapped_sku );
 			wp_send_json_error( array( 'message' => __( 'API returned no licenses.', 'licensesender' ) ) );
 		}
 
@@ -131,7 +131,7 @@ class Licensesender_Admin_Fetch_License {
 		$fetched_total  = ls_count_fetched_license_keys( $order_id );
 		$all_complete   = $expected_total > 0 && $fetched_total >= $expected_total;
 
-		ls_release_fetch_lock( $order_id, $product_id );
+		ls_release_fetch_lock( $order_id, $product_id, $mapped_sku );
 
 		wp_send_json_success(
 			array(

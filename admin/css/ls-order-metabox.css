@@ -22,6 +22,9 @@
 	display: grid;
 	gap: 8px;
 }
+.ls-admin-key-list.is-collapsed .ls-admin-key-row.is-overflow {
+	display: none;
+}
 .ls-admin-key-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -46,6 +49,28 @@
 .ls-report-key-btn {
 	flex: 0 0 auto;
 	white-space: nowrap;
+}
+.ls-admin-key-toggle-wrap {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px 12px;
+	margin-top: 2px;
+	padding-top: 8px;
+	border-top: 1px dashed #dcdcde;
+}
+.ls-admin-key-toggle {
+	font-weight: 600;
+	text-decoration: none;
+	color: #2271b1;
+}
+.ls-admin-key-toggle:hover,
+.ls-admin-key-toggle:focus {
+	color: #135e96;
+}
+.ls-admin-key-toggle-hint {
+	color: #646970;
+	font-size: 12px;
 }
 
 body.ls-report-modal-open {

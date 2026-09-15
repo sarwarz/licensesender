@@ -453,15 +453,17 @@ class LS_Order_Push {
 				continue;
 			}
 
-			$lock = ls_acquire_fetch_lock( $order_id, $resolved );
+			$lock = ls_acquire_fetch_lock( $order_id, $resolved, $sku );
 			if ( is_wp_error( $lock ) ) {
 				continue;
 			}
 
+			$api_qty = ls_api_quantity_for_product_fetch( $order, $resolved, $sku );
+
 			$result = Licensesender_Api::fetch_license(
 				array(
 					'sku'      => $sku,
-					'quantity' => $need,
+					'quantity' => $api_qty,
 					'order_id' => $order_id,
 					'email'    => $email,
 					// Keep Source consistent with My Keys / other fetch paths (shop name, not platform).
@@ -487,7 +489,7 @@ class LS_Order_Push {
 				LS_License_Email_Service::maybe_schedule_after_fetch( $order, $email );
 			}
 
-			ls_release_fetch_lock( $order_id, $resolved );
+			ls_release_fetch_lock( $order_id, $resolved, $sku );
 		}
 	}
 }

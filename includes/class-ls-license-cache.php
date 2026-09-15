@@ -64,7 +64,36 @@ class LS_License_Cache {
 
 		$order_id   = (int) $order_id;
 		$product_id = (int) $product_id;
+		$sku        = trim( (string) $sku );
 		$saved      = array();
+
+		$order            = wc_get_order( $order_id );
+		$product_expected = $order ? ls_count_expected_keys_for_product_in_order( $order, $product_id ) : 0;
+		$product_cached   = count( ls_get_cached_licenses_for_product( $order_id, $product_id ) );
+		$slots_left       = $product_expected > 0
+			? max( 0, $product_expected - $product_cached )
+			: PHP_INT_MAX;
+
+		// Remote IDs already owned by another Woo product on this order — never steal them.
+		$owned_elsewhere = array();
+		if ( $order_id > 0 ) {
+			$other_rows = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT remote_license_id, product_id FROM ' . self::table_name()
+					. ' WHERE order_id = %d AND remote_license_id IS NOT NULL AND remote_license_id > 0',
+					$order_id
+				)
+			);
+			if ( is_array( $other_rows ) ) {
+				foreach ( $other_rows as $other ) {
+					$rid = (int) ( $other->remote_license_id ?? 0 );
+					$pid = (int) ( $other->product_id ?? 0 );
+					if ( $rid > 0 && $pid > 0 && $pid !== $product_id ) {
+						$owned_elsewhere[ $rid ] = $pid;
+					}
+				}
+			}
+		}
 
 		foreach ( $licenses as $license ) {
 			if ( ! is_array( $license ) ) {
@@ -77,7 +106,33 @@ class LS_License_Cache {
 			}
 
 			$remote_id = self::extract_remote_license_id( $license );
-			$row_id    = self::upsert_license_row(
+
+			// Skip keys that already belong to a different line product on this order.
+			if ( $remote_id > 0 && isset( $owned_elsewhere[ $remote_id ] ) ) {
+				continue;
+			}
+
+			$already_here = false;
+			if ( $remote_id > 0 && $order_id > 0 ) {
+				$existing_pid = (int) $wpdb->get_var(
+					$wpdb->prepare(
+						'SELECT product_id FROM ' . self::table_name()
+						. ' WHERE order_id = %d AND remote_license_id = %d LIMIT 1',
+						$order_id,
+						$remote_id
+					)
+				);
+				$already_here = ( $existing_pid === $product_id );
+			}
+
+			// Only claim brand-new (or already-ours) keys while this product still needs slots.
+			if ( ! $already_here ) {
+				if ( $slots_left < 1 ) {
+					continue;
+				}
+			}
+
+			$row_id = self::upsert_license_row(
 				array(
 					'order_id'          => $order_id,
 					'product_id'        => $product_id,
@@ -93,6 +148,9 @@ class LS_License_Cache {
 			);
 
 			if ( $row_id ) {
+				if ( ! $already_here && $slots_left < PHP_INT_MAX ) {
+					--$slots_left;
+				}
 				$row = $wpdb->get_row(
 					$wpdb->prepare( 'SELECT * FROM ' . self::table_name() . ' WHERE id = %d', $row_id )
 				);
@@ -132,15 +190,36 @@ class LS_License_Cache {
 		}
 
 		$existing_id = 0;
+		$existing_product_id = 0;
 
 		if ( $remote_id > 0 ) {
 			// Prefer remote ID — never collapse different remote licenses by key text.
-			$existing_id = (int) $wpdb->get_var(
+			$existing = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE remote_license_id = %d LIMIT 1",
+					"SELECT id, order_id, product_id FROM {$table} WHERE remote_license_id = %d LIMIT 1",
 					$remote_id
 				)
 			);
+			if ( $existing ) {
+				$existing_id         = (int) $existing->id;
+				$existing_product_id = (int) ( $existing->product_id ?? 0 );
+				$existing_order_id   = (int) ( $existing->order_id ?? 0 );
+
+				// Shared-SKU safety: do not move a key to another Woo product on the same order.
+				if (
+					$existing_order_id === $order_id
+					&& $existing_product_id > 0
+					&& $product_id > 0
+					&& $existing_product_id !== $product_id
+				) {
+					return $existing_id;
+				}
+
+				// Keep original product ownership when caller omits product_id.
+				if ( $product_id < 1 && $existing_product_id > 0 ) {
+					$product_id = $existing_product_id;
+				}
+			}
 		} elseif ( $product_id > 0 ) {
 			// Legacy rows without a remote ID: only rematch unlinked rows.
 			$existing_id = (int) $wpdb->get_var(
@@ -459,7 +538,8 @@ class LS_License_Cache {
 					self::upsert_license_row(
 						array(
 							'order_id'          => $order_id,
-							'product_id'        => $product_id ?: (int) $local_row->product_id,
+							// Keep existing Woo product ownership for shared-SKU orders.
+							'product_id'        => (int) $local_row->product_id ?: $product_id,
 							'sku'               => $sku ?: (string) $local_row->sku,
 							'email'             => $email,
 							'key_value'         => $key_value,
@@ -629,6 +709,9 @@ class LS_License_Cache {
 	}
 
 	/**
+	 * Pick a WooCommerce product on the order for this SaaS SKU.
+	 * When several products share the SKU, prefer a line that still has capacity.
+	 *
 	 * @param WC_Order $order WooCommerce order.
 	 * @param string   $sku   Licensesender SKU.
 	 */
@@ -638,13 +721,31 @@ class LS_License_Cache {
 			return 0;
 		}
 
+		$order_id      = (int) $order->get_id();
+		$candidates    = array();
+		$with_capacity = array();
+
 		foreach ( $order->get_items() as $item ) {
 			$pid = (int) ( $item->get_variation_id() ?: $item->get_product_id() );
-			if ( ls_get_mapped_sku( $pid ) === $sku ) {
-				return $pid;
+			if ( ! ls_is_licensesender_enabled( $pid ) ) {
+				continue;
+			}
+			if ( ls_get_mapped_sku( $pid ) !== $sku ) {
+				continue;
+			}
+
+			$candidates[] = $pid;
+			$expected     = ls_count_expected_keys_for_product_in_order( $order, $pid );
+			$cached       = count( ls_get_cached_licenses_for_product( $order_id, $pid ) );
+			if ( $expected < 1 || $cached < $expected ) {
+				$with_capacity[] = $pid;
 			}
 		}
 
-		return 0;
+		if ( $with_capacity !== array() ) {
+			return (int) $with_capacity[0];
+		}
+
+		return $candidates !== array() ? (int) $candidates[0] : 0;
 	}
 }

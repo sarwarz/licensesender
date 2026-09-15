@@ -319,6 +319,27 @@ class Licensesender_Admin_MetaBoxes {
 				$('body').removeClass('ls-report-modal-open');
 			}
 
+			$(document).on('click', '.ls-admin-key-toggle', function (event) {
+				event.preventDefault();
+				const $btn = $(this);
+				const $list = $btn.closest('.ls-admin-key-list');
+				const expanded = $list.hasClass('is-expanded');
+
+				if (expanded) {
+					$list.removeClass('is-expanded').addClass('is-collapsed');
+					$btn.attr('aria-expanded', 'false');
+					$btn.find('.ls-admin-key-toggle-more').prop('hidden', false);
+					$btn.find('.ls-admin-key-toggle-less').prop('hidden', true);
+					$list.find('.ls-admin-key-toggle-hint').prop('hidden', false);
+				} else {
+					$list.removeClass('is-collapsed').addClass('is-expanded');
+					$btn.attr('aria-expanded', 'true');
+					$btn.find('.ls-admin-key-toggle-more').prop('hidden', true);
+					$btn.find('.ls-admin-key-toggle-less').prop('hidden', false);
+					$list.find('.ls-admin-key-toggle-hint').prop('hidden', true);
+				}
+			});
+
 			$(document).on('click', '.ls-report-key-btn', function (event) {
 				event.preventDefault();
 				const $btn = $(this);

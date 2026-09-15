@@ -513,8 +513,6 @@ class LS_My_Keys_Endpoint {
             );
         }
 
-        $need = max( 1, $expected_qty - count( $rows ) );
-
         // Product settings
         if ( ! ls_is_licensesender_enabled( $used_product_id ) ) {
             wp_send_json_error(['message' => __('licensesender is not enabled for this product.', 'licensesender')], 400);
@@ -529,10 +527,12 @@ class LS_My_Keys_Endpoint {
             wp_send_json_error(['message' => __('License API is not available.', 'licensesender')], 500);
         }
 
-        $lock = ls_acquire_fetch_lock( $order_id, $used_product_id );
+        $lock = ls_acquire_fetch_lock( $order_id, $used_product_id, $mapped_sku );
         if ( is_wp_error( $lock ) ) {
             wp_send_json_error( array( 'message' => $lock->get_error_message() ), 409 );
         }
+
+        $need = ls_api_quantity_for_product_fetch( $order, $used_product_id, $mapped_sku );
 
         $result = Licensesender_Api::fetch_license([
             'sku'      => $mapped_sku,
@@ -543,7 +543,7 @@ class LS_My_Keys_Endpoint {
         ]);
 
         if (empty($result['success'])) {
-            ls_release_fetch_lock( $order_id, $used_product_id );
+            ls_release_fetch_lock( $order_id, $used_product_id, $mapped_sku );
             $msg    = $result['message'] ?? __('Request failed', 'licensesender');
             $scope  = $result['meta']['scope']  ?? '';
             $reason = $result['meta']['reason'] ?? '';
@@ -583,7 +583,7 @@ class LS_My_Keys_Endpoint {
         $rows    = self::get_cached_licenses($order_id, $used_product_id);
         $payload = $build_payload($rows);
 
-        ls_release_fetch_lock( $order_id, $used_product_id );
+        ls_release_fetch_lock( $order_id, $used_product_id, $mapped_sku );
 
         wp_send_json_success($payload);
     }

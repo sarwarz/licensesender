@@ -145,6 +145,114 @@ function ls_count_expected_keys_for_product_in_order( WC_Order $order, int $prod
 }
 
 /**
+ * Expected key count for all order lines that map to the same SaaS SKU.
+ * Used when multiple WooCommerce products share one SaaS inventory product.
+ */
+function ls_count_expected_keys_for_sku_in_order( WC_Order $order, string $sku ): int {
+	$sku   = trim( $sku );
+	$count = 0;
+
+	if ( $sku === '' ) {
+		return 0;
+	}
+
+	foreach ( $order->get_items() as $item ) {
+		$pid = (int) ( $item->get_variation_id() ?: $item->get_product_id() );
+		if ( ! ls_is_licensesender_enabled( $pid ) ) {
+			continue;
+		}
+		if ( ls_get_mapped_sku( $pid ) !== $sku ) {
+			continue;
+		}
+		$count += max( 1, (int) $item->get_quantity() );
+	}
+
+	return $count;
+}
+
+/**
+ * Cached license rows for an order + mapped SKU (any WooCommerce product_id).
+ */
+function ls_count_cached_licenses_for_sku( int $order_id, string $sku ): int {
+	global $wpdb;
+
+	$sku = trim( $sku );
+	if ( ! $order_id || $sku === '' ) {
+		return 0;
+	}
+
+	$table = $wpdb->prefix . 'ls_cached_licenses';
+
+	return (int) $wpdb->get_var(
+		$wpdb->prepare(
+			"SELECT COUNT(*) FROM {$table} WHERE order_id = %d AND sku = %s AND fetched = 1",
+			$order_id,
+			$sku
+		)
+	);
+}
+
+/**
+ * How many distinct WooCommerce products on an order map to this SaaS SKU.
+ */
+function ls_count_wc_products_for_sku_in_order( WC_Order $order, string $sku ): int {
+	$sku = trim( $sku );
+	if ( $sku === '' ) {
+		return 0;
+	}
+
+	$ids = array();
+	foreach ( $order->get_items() as $item ) {
+		$pid = (int) ( $item->get_variation_id() ?: $item->get_product_id() );
+		if ( ! ls_is_licensesender_enabled( $pid ) ) {
+			continue;
+		}
+		if ( ls_get_mapped_sku( $pid ) !== $sku ) {
+			continue;
+		}
+		$ids[ $pid ] = true;
+	}
+
+	return count( $ids );
+}
+
+/**
+ * SaaS fetch quantity for a WooCommerce line when multiple lines may share one SKU.
+ *
+ * SaaS treats `quantity` as the target total for order+sku. Request only enough to
+ * cover this product's remaining need on top of keys already cached for the SKU,
+ * capped at the order-wide expected total for that SKU.
+ *
+ * When multiple WC products share the SKU, always target the full order SKU total
+ * so parallel/sequential fetches top up the shared pool correctly.
+ */
+function ls_api_quantity_for_product_fetch( WC_Order $order, int $product_id, string $sku ): int {
+	$order_id         = (int) $order->get_id();
+	$sku              = trim( $sku );
+	$product_expected = ls_count_expected_keys_for_product_in_order( $order, $product_id );
+	$product_cached   = count( ls_get_cached_licenses_for_product( $order_id, $product_id ) );
+	$product_need     = max( 0, $product_expected - $product_cached );
+
+	if ( $product_need < 1 ) {
+		return max( 1, $product_expected );
+	}
+
+	$sku_expected = ls_count_expected_keys_for_sku_in_order( $order, $sku );
+	if ( $sku_expected < 1 ) {
+		return max( 1, $product_need );
+	}
+
+	if ( ls_count_wc_products_for_sku_in_order( $order, $sku ) > 1 ) {
+		return max( 1, $sku_expected );
+	}
+
+	$sku_cached = ls_count_cached_licenses_for_sku( $order_id, $sku );
+	$target     = min( $sku_expected, $sku_cached + $product_need );
+
+	return max( 1, $target );
+}
+
+/**
  * Cached license rows for a product on an order (capped to expected quantity, newest kept).
  *
  * @return object[]
@@ -179,6 +287,7 @@ function ls_get_cached_licenses_for_product( int $order_id, int $product_id ): a
 
 /**
  * Admin order metabox: keys list with per-key Report action.
+ * Lists with more than 5 keys collapse behind a "View all" control.
  */
 function ls_render_admin_order_license_keys_html( array $licenses, WC_Order $order ): string {
 	if ( empty( $licenses ) ) {
@@ -215,10 +324,16 @@ function ls_render_admin_order_license_keys_html( array $licenses, WC_Order $ord
 		return '<em class="ls-muted">' . esc_html__( 'Not fetched yet', 'licensesender' ) . '</em>';
 	}
 
-	$html = '<div class="ls-admin-key-list">';
-	foreach ( $items as $item ) {
-		$html .= '<div class="ls-admin-key-row">';
-		$html .= '<code class="ls-admin-key-value">' . esc_html( $item['key'] ) . '</code>';
+	$total      = count( $items );
+	$preview_n  = 5;
+	$collapsed  = $total > $preview_n;
+	$list_class = 'ls-admin-key-list' . ( $collapsed ? ' is-collapsed' : '' );
+
+	$html = '<div class="' . esc_attr( $list_class ) . '" data-preview-count="' . esc_attr( (string) $preview_n ) . '">';
+	foreach ( $items as $index => $item ) {
+		$hidden_class = ( $collapsed && $index >= $preview_n ) ? ' is-overflow' : '';
+		$html        .= '<div class="ls-admin-key-row' . esc_attr( $hidden_class ) . '">';
+		$html        .= '<code class="ls-admin-key-value">' . esc_html( $item['key'] ) . '</code>';
 		if ( $item['id'] > 0 ) {
 			$html .= sprintf(
 				'<button type="button" class="button button-small ls-report-key-btn" data-license-id="%1$d" data-license-key="%2$s" data-order-id="%3$d" data-product-id="%4$d" data-product-name="%5$s">%6$s</button>',
@@ -232,6 +347,30 @@ function ls_render_admin_order_license_keys_html( array $licenses, WC_Order $ord
 		}
 		$html .= '</div>';
 	}
+
+	if ( $collapsed ) {
+		$html .= '<div class="ls-admin-key-toggle-wrap">';
+		$html .= '<button type="button" class="button-link ls-admin-key-toggle" aria-expanded="false">';
+		$html .= '<span class="ls-admin-key-toggle-more">' . esc_html(
+			sprintf(
+				/* translators: %d: total license keys */
+				__( 'View all %d keys', 'licensesender' ),
+				$total
+			)
+		) . '</span>';
+		$html .= '<span class="ls-admin-key-toggle-less" hidden>' . esc_html__( 'Show less', 'licensesender' ) . '</span>';
+		$html .= '</button>';
+		$html .= '<span class="ls-admin-key-toggle-hint">' . esc_html(
+			sprintf(
+				/* translators: 1: visible count, 2: total count */
+				__( 'Showing %1$d of %2$d', 'licensesender' ),
+				$preview_n,
+				$total
+			)
+		) . '</span>';
+		$html .= '</div>';
+	}
+
 	$html .= '</div>';
 
 	return $html;
@@ -625,8 +764,12 @@ function ls_get_license_product_links( $product_id ) {
  *
  * @return true|WP_Error
  */
-function ls_acquire_fetch_lock( int $order_id, int $product_id ) {
-	$option = 'ls_fetch_lock_' . $order_id . '_' . $product_id;
+function ls_acquire_fetch_lock( int $order_id, int $product_id, string $sku = '' ) {
+	$sku = trim( $sku );
+	// Shared-SKU lines must serialize on the SKU, not the WC product id.
+	$option = $sku !== ''
+		? 'ls_fetch_lock_' . $order_id . '_sku_' . md5( strtolower( $sku ) )
+		: 'ls_fetch_lock_' . $order_id . '_' . $product_id;
 	$now    = time();
 
 	if ( add_option( $option, (string) $now, '', 'no' ) ) {
@@ -646,8 +789,12 @@ function ls_acquire_fetch_lock( int $order_id, int $product_id ) {
 	);
 }
 
-function ls_release_fetch_lock( int $order_id, int $product_id ): void {
-	delete_option( 'ls_fetch_lock_' . $order_id . '_' . $product_id );
+function ls_release_fetch_lock( int $order_id, int $product_id, string $sku = '' ): void {
+	$sku = trim( $sku );
+	$option = $sku !== ''
+		? 'ls_fetch_lock_' . $order_id . '_sku_' . md5( strtolower( $sku ) )
+		: 'ls_fetch_lock_' . $order_id . '_' . $product_id;
+	delete_option( $option );
 }
 
 function ls_user_can_access_order_licenses( WC_Order $order, array $args = array() ): bool {

@@ -89,9 +89,9 @@ class Ls_Licensesender_Public_Action {
 			wp_send_json_error( array( 'message' => __( 'This product does not have a mapped SKU.', 'licensesender' ) ) );
 		}
 
-		$need = max( 1, $expected_qty - $cached_count );
+		$need = ls_api_quantity_for_product_fetch( $order, $used_product_id, $mapped_sku );
 
-		$lock = ls_acquire_fetch_lock( $order_id, $used_product_id );
+		$lock = ls_acquire_fetch_lock( $order_id, $used_product_id, $mapped_sku );
 		if ( is_wp_error( $lock ) ) {
 			wp_send_json_error( array( 'message' => $lock->get_error_message() ) );
 		}
@@ -107,7 +107,7 @@ class Ls_Licensesender_Public_Action {
 		);
 
 		if ( empty( $result['success'] ) ) {
-			ls_release_fetch_lock( $order_id, $used_product_id );
+			ls_release_fetch_lock( $order_id, $used_product_id, $mapped_sku );
 			$msg    = $result['message'] ?? __( 'Request failed', 'licensesender' );
 			$scope  = $result['meta']['scope'] ?? '';
 			$reason = $result['meta']['reason'] ?? '';
@@ -149,7 +149,7 @@ class Ls_Licensesender_Public_Action {
 		LS_License_Email_Service::maybe_schedule_after_fetch( $order, $email );
 
 		$cached_after = ls_get_cached_licenses_for_product( $order_id, $used_product_id );
-		ls_release_fetch_lock( $order_id, $used_product_id );
+		ls_release_fetch_lock( $order_id, $used_product_id, $mapped_sku );
 
 		wp_send_json_success( array( 'html' => self::render_license_rows_html( $cached_after, $order ) ) );
 	}
