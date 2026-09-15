@@ -14,8 +14,6 @@ class Licensesender_Admin_Fetch_License {
 			wp_send_json_error( array( 'message' => __( 'Permission denied.', 'licensesender' ) ) );
 		}
 
-		global $wpdb;
-
 		$order_id   = absint( $_POST['order_id'] ?? 0 );
 		$product_id = absint( $_POST['product_id'] ?? 0 );
 
@@ -60,15 +58,7 @@ class Licensesender_Admin_Fetch_License {
 			wp_send_json_error( array( 'message' => $lock->get_error_message() ) );
 		}
 
-		$table = $wpdb->prefix . 'ls_cached_licenses';
-
-		$existing = (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT COUNT(*) FROM $table WHERE order_id = %d AND product_id = %d AND fetched = 1",
-				$order_id,
-				$product_id
-			)
-		);
+		$existing = count( ls_get_cached_licenses_for_product( $order_id, $product_id ) );
 
 		if ( $existing >= $quantity ) {
 			ls_release_fetch_lock( $order_id, $product_id, $mapped_sku );
@@ -120,10 +110,19 @@ class Licensesender_Admin_Fetch_License {
 			'admin'
 		);
 
-		LS_License_Email_Service::maybe_schedule_after_fetch( $order, (string) $order->get_billing_email() );
-
 		$cached      = ls_get_cached_licenses_for_product( $order_id, $product_id );
 		$fetched_qty = count( $cached );
+
+		// Idempotent SaaS delivery can return keys that ownership rules skipped;
+		// pull the order cache so already-assigned keys still appear in WP.
+		if ( $fetched_qty < $quantity ) {
+			LS_License_Cache::sync_order_licenses( $order_id, true );
+			$cached      = ls_get_cached_licenses_for_product( $order_id, $product_id );
+			$fetched_qty = count( $cached );
+		}
+
+		LS_License_Email_Service::maybe_schedule_after_fetch( $order, (string) $order->get_billing_email() );
+
 		$is_complete = $fetched_qty >= $quantity;
 		$progress_cls = $is_complete ? 'is-complete' : ( $fetched_qty > 0 ? 'is-partial' : 'is-empty' );
 

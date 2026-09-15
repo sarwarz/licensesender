@@ -434,31 +434,35 @@ class LS_Order_Push {
 				continue;
 			}
 
-			$product_id = (int) $product->get_id();
-			if ( ! ls_is_licensesender_enabled( $product_id ) ) {
+			// Always cache under the order line product id (variation or simple),
+			// matching metabox / My Keys lookups. Meta still resolves via helpers.
+			$line_product_id = (int) ( $item->get_variation_id() ?: $item->get_product_id() );
+			if ( ! $line_product_id ) {
+				$line_product_id = (int) $product->get_id();
+			}
+			if ( ! ls_is_licensesender_enabled( $line_product_id ) ) {
 				continue;
 			}
 
-			$sku = ls_get_mapped_sku( $product_id );
+			$sku = ls_get_mapped_sku( $line_product_id );
 			if ( $sku === '' ) {
 				continue;
 			}
 
-			$resolved = (int) ( ls_resolve_license_product_id( $product_id ) ?: $product_id );
 			$expected = max( 1, (int) $item->get_quantity() );
-			$cached   = count( ls_get_cached_licenses_for_product( $order_id, $resolved ) );
+			$cached   = count( ls_get_cached_licenses_for_product( $order_id, $line_product_id ) );
 			$need     = max( 0, $expected - $cached );
 
 			if ( $need < 1 ) {
 				continue;
 			}
 
-			$lock = ls_acquire_fetch_lock( $order_id, $resolved, $sku );
+			$lock = ls_acquire_fetch_lock( $order_id, $line_product_id, $sku );
 			if ( is_wp_error( $lock ) ) {
 				continue;
 			}
 
-			$api_qty = ls_api_quantity_for_product_fetch( $order, $resolved, $sku );
+			$api_qty = ls_api_quantity_for_product_fetch( $order, $line_product_id, $sku );
 
 			$result = Licensesender_Api::fetch_license(
 				array(
@@ -473,11 +477,11 @@ class LS_Order_Push {
 
 			if ( ! empty( $result['success'] ) && ! empty( $result['licenses'] ) && is_array( $result['licenses'] ) ) {
 				$product_info = is_array( $result['product'] ?? null ) ? $result['product'] : array();
-				$links        = ls_get_license_product_links( $resolved );
+				$links        = ls_get_license_product_links( $line_product_id );
 
 				LS_License_Cache::save_fetched_licenses(
 					$order_id,
-					$resolved,
+					$line_product_id,
 					$sku,
 					$email,
 					$result['licenses'],
@@ -489,7 +493,7 @@ class LS_Order_Push {
 				LS_License_Email_Service::maybe_schedule_after_fetch( $order, $email );
 			}
 
-			ls_release_fetch_lock( $order_id, $resolved, $sku );
+			ls_release_fetch_lock( $order_id, $line_product_id, $sku );
 		}
 	}
 }

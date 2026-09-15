@@ -66,13 +66,23 @@ class Licensesender_Admin_MetaBoxes {
 
 		$order_id = $order->get_id();
 
-		if ( class_exists( 'LS_License_Cache' ) && ls_count_fetched_license_keys( $order_id ) > 0 ) {
+		$expected_total = ls_count_expected_license_keys( $order );
+		$fetched_total  = ls_count_fetched_license_keys( $order_id );
+
+		// SaaS may already have assigned keys while the WP cache is empty/stale
+		// (timeout after assign, shared-SKU ownership mismatch, etc.). Pull them in.
+		if (
+			class_exists( 'LS_License_Cache' )
+			&& $expected_total > 0
+			&& $fetched_total < $expected_total
+		) {
+			LS_License_Cache::sync_order_licenses( $order_id, true );
+			$fetched_total = ls_count_fetched_license_keys( $order_id );
+		} elseif ( class_exists( 'LS_License_Cache' ) && $fetched_total > 0 ) {
 			// Webhooks keep cache in sync; only prune local duplicates on view.
 			LS_License_Cache::prune_excess_keys_for_order( $order_id );
+			$fetched_total = ls_count_fetched_license_keys( $order_id );
 		}
-
-		$expected_total  = ls_count_expected_license_keys( $order );
-		$fetched_total   = ls_count_fetched_license_keys( $order_id );
 		$all_complete    = $expected_total > 0 && $fetched_total >= $expected_total;
 		$licenses_url    = add_query_arg(
 			array(

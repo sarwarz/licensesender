@@ -371,13 +371,15 @@ class LS_License_Cache {
 				continue;
 			}
 
-			$ids = $wpdb->get_col(
-				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE order_id = %d AND product_id = %d AND fetched = 1 ORDER BY id DESC",
-					$order_id,
-					$product_id
-				)
-			);
+			$product_ids  = function_exists( 'ls_license_cache_product_ids' )
+				? ls_license_cache_product_ids( $product_id )
+				: array( $product_id );
+			$placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+			$params       = array_merge( array( $order_id ), $product_ids );
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+			$sql = "SELECT id FROM {$table} WHERE order_id = %d AND product_id IN ({$placeholders}) AND fetched = 1 ORDER BY id DESC";
+			// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+			$ids = $wpdb->get_col( $wpdb->prepare( $sql, $params ) );
 
 			if ( ! is_array( $ids ) || count( $ids ) <= $expected ) {
 				continue;

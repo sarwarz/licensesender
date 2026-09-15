@@ -253,6 +253,27 @@ function ls_api_quantity_for_product_fetch( WC_Order $order, int $product_id, st
 }
 
 /**
+ * WooCommerce product IDs that may own cache rows for a line item.
+ * Includes the line id and the meta-resolved parent when variation support is off.
+ *
+ * @return int[]
+ */
+function ls_license_cache_product_ids( int $product_id ): array {
+	$product_id = absint( $product_id );
+	if ( ! $product_id ) {
+		return array();
+	}
+
+	$ids      = array( $product_id );
+	$resolved = (int) ls_resolve_license_product_id( $product_id );
+	if ( $resolved > 0 ) {
+		$ids[] = $resolved;
+	}
+
+	return array_values( array_unique( array_filter( array_map( 'intval', $ids ) ) ) );
+}
+
+/**
  * Cached license rows for a product on an order (capped to expected quantity, newest kept).
  *
  * @return object[]
@@ -261,13 +282,17 @@ function ls_get_cached_licenses_for_product( int $order_id, int $product_id ): a
 	global $wpdb;
 	$table = $wpdb->prefix . 'ls_cached_licenses';
 
-	$rows = $wpdb->get_results(
-		$wpdb->prepare(
-			"SELECT * FROM {$table} WHERE order_id = %d AND product_id = %d AND fetched = 1 ORDER BY id DESC",
-			$order_id,
-			$product_id
-		)
-	);
+	$product_ids = ls_license_cache_product_ids( $product_id );
+	if ( $order_id < 1 || $product_ids === array() ) {
+		return array();
+	}
+
+	$placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+	$params       = array_merge( array( $order_id ), $product_ids );
+	// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared, WordPress.DB.PreparedSQLPlaceholders.UnfinishedPrepare
+	$sql = "SELECT * FROM {$table} WHERE order_id = %d AND product_id IN ({$placeholders}) AND fetched = 1 ORDER BY id DESC";
+	// phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+	$rows = $wpdb->get_results( $wpdb->prepare( $sql, $params ) );
 
 	if ( ! is_array( $rows ) || empty( $rows ) ) {
 		return array();
