@@ -162,6 +162,10 @@ class LS_License_Cache {
 
 		delete_transient( self::SYNC_TRANSIENT_PREFIX . $order_id );
 
+		if ( function_exists( 'ls_refresh_order_license_delivery_meta' ) ) {
+			ls_refresh_order_license_delivery_meta( $order_id );
+		}
+
 		return $saved;
 	}
 
@@ -609,6 +613,10 @@ class LS_License_Cache {
 		$removed += self::prune_excess_keys_for_order( $order_id );
 
 		set_transient( self::SYNC_TRANSIENT_PREFIX . $order_id, 1, self::SYNC_DEBOUNCE_SECONDS );
+
+		if ( function_exists( 'ls_refresh_order_license_delivery_meta' ) ) {
+			ls_refresh_order_license_delivery_meta( $order_id );
+		}
 
 		return array(
 			'success'  => true,

@@ -83,6 +83,11 @@ class Licensesender_Admin_MetaBoxes {
 			LS_License_Cache::prune_excess_keys_for_order( $order_id );
 			$fetched_total = ls_count_fetched_license_keys( $order_id );
 		}
+
+		if ( function_exists( 'ls_refresh_order_license_delivery_meta' ) ) {
+			ls_refresh_order_license_delivery_meta( $order );
+		}
+
 		$all_complete    = $expected_total > 0 && $fetched_total >= $expected_total;
 		$licenses_url    = add_query_arg(
 			array(

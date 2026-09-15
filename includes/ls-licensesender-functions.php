@@ -431,6 +431,90 @@ function ls_order_has_ls_delivery_meta( $order ): bool {
 }
 
 /**
+ * Order meta key for cached license delivery progress (complete|partial|pending).
+ */
+function ls_order_license_delivery_meta_key(): string {
+	return '_ls_license_keys_status';
+}
+
+/**
+ * Compute and persist license delivery status meta for list/column UI.
+ *
+ * @return string complete|partial|pending|none
+ */
+function ls_refresh_order_license_delivery_meta( $order ): string {
+	if ( ! $order instanceof WC_Order ) {
+		$order = wc_get_order( $order );
+	}
+	if ( ! $order instanceof WC_Order ) {
+		return 'none';
+	}
+
+	if ( ! ls_order_has_licensable_products( $order ) ) {
+		$order->delete_meta_data( ls_order_license_delivery_meta_key() );
+		$order->save();
+		return 'none';
+	}
+
+	$expected = ls_count_expected_license_keys( $order );
+	$fetched  = ls_count_fetched_license_keys( (int) $order->get_id() );
+
+	if ( $expected <= 0 ) {
+		$status = 'none';
+	} elseif ( $fetched >= $expected ) {
+		$status = 'complete';
+	} elseif ( $fetched > 0 ) {
+		$status = 'partial';
+	} else {
+		$status = 'pending';
+	}
+
+	$order->update_meta_data( ls_order_license_delivery_meta_key(), $status );
+	$order->update_meta_data( '_ls_license_keys_fetched', $fetched );
+	$order->update_meta_data( '_ls_license_keys_expected', $expected );
+	$order->save();
+
+	return $status;
+}
+
+/**
+ * Delivery status for admin UI: complete|partial|pending|waiting|none
+ * "waiting" = licensable but order not completed yet.
+ */
+function ls_get_order_license_delivery_status( WC_Order $order ): string {
+	if ( ! ls_order_has_licensable_products( $order ) ) {
+		return 'none';
+	}
+
+	$expected = ls_count_expected_license_keys( $order );
+	if ( $expected <= 0 ) {
+		return 'none';
+	}
+
+	$fetched = ls_count_fetched_license_keys( (int) $order->get_id() );
+	if ( $fetched >= $expected ) {
+		return 'complete';
+	}
+	if ( $fetched > 0 ) {
+		return 'partial';
+	}
+
+	$meta = (string) $order->get_meta( ls_order_license_delivery_meta_key(), true );
+	if ( $meta === 'complete' ) {
+		return 'complete';
+	}
+	if ( $meta === 'partial' ) {
+		return 'partial';
+	}
+
+	if ( $order->get_status() !== 'completed' ) {
+		return 'waiting';
+	}
+
+	return 'pending';
+}
+
+/**
  * Ensure and return the plugin activation date (Y-m-d, site timezone).
  *
  * Existing installs without a stored date are seeded once on first read.
