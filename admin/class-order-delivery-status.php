@@ -47,9 +47,10 @@ class Ls_Licensesender_Order_Delivery_Status {
 	}
 
 	/**
-	 * @param WC_Order|false|null $order Order.
+	 * @param WC_Order|false|null $order      Order.
+	 * @param bool                $after_sync When true, never re-queue AJAX (one-shot sync only).
 	 */
-	public static function get_delivery_icon_html( $order ): string {
+	public static function get_delivery_icon_html( $order, bool $after_sync = false ): string {
 		if ( ! $order instanceof WC_Order ) {
 			return '—';
 		}
@@ -86,7 +87,18 @@ class Ls_Licensesender_Order_Delivery_Status {
 			return '<span class="dashicons dashicons-clock ls-delivery-waiting" title="' . esc_attr( $title ) . '" data-ls-delivery="waiting"></span>';
 		}
 
-		// Completed order with empty local cache — mark for background SaaS sync.
+		// Completed order with empty local cache.
+		// Initial list render: queue one background SaaS sync.
+		// After sync: static pending (keys not assigned on SaaS yet) — never re-poll.
+		if ( $after_sync ) {
+			$title = __( 'License pending — no keys on SaaS yet', 'licensesender' );
+			return sprintf(
+				'<span class="dashicons dashicons-warning ls-delivery-pending" title="%1$s" data-ls-delivery="pending" data-order-id="%2$d"></span>',
+				esc_attr( $title ),
+				$order_id
+			);
+		}
+
 		$title = __( 'License pending — syncing…', 'licensesender' );
 		return sprintf(
 			'<span class="dashicons dashicons-warning ls-delivery-pending ls-delivery-needs-sync" title="%1$s" data-ls-delivery="pending" data-order-id="%2$d"></span>',
@@ -125,11 +137,15 @@ class Ls_Licensesender_Order_Delivery_Status {
 			$handle,
 			<<<'JS'
 (function ($) {
+	var attempted = {};
+
 	function refreshOne($el) {
 		var orderId = parseInt($el.data('order-id'), 10) || 0;
-		if (!orderId || $el.data('lsSyncing')) {
+		if (!orderId || $el.data('lsSyncing') || attempted[orderId]) {
+			$el.removeClass('ls-delivery-needs-sync');
 			return $.Deferred().resolve().promise();
 		}
+		attempted[orderId] = 1;
 		$el.data('lsSyncing', 1).attr('title', (window.lsDeliveryColumn && lsDeliveryColumn.i18n.syncing) || 'Syncing…');
 
 		return $.post(lsDeliveryColumn.ajaxUrl, {
@@ -148,10 +164,15 @@ class Ls_Licensesender_Order_Delivery_Status {
 	}
 
 	function runQueue() {
-		var $nodes = $('.ls-delivery-needs-sync').slice(0, 5);
+		var $nodes = $('.ls-delivery-needs-sync').filter(function () {
+			var id = parseInt($(this).data('order-id'), 10) || 0;
+			return id && !attempted[id];
+		}).slice(0, 5);
+
 		if (!$nodes.length) {
 			return;
 		}
+
 		var chain = $.Deferred().resolve().promise();
 		$nodes.each(function () {
 			var $el = $(this);
@@ -202,9 +223,10 @@ JS
 			$order = wc_get_order( $order_id );
 		}
 
+		// after_sync=true → static icon; never return ls-delivery-needs-sync (stops infinite poll).
 		wp_send_json_success(
 			array(
-				'html'   => self::get_delivery_icon_html( $order ),
+				'html'   => self::get_delivery_icon_html( $order, true ),
 				'status' => function_exists( 'ls_get_order_license_delivery_status' ) ? ls_get_order_license_delivery_status( $order ) : '',
 			)
 		);
