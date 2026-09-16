@@ -999,8 +999,8 @@ class LS_Admin_Service {
 
 		switch ( $tab ) {
 			case 'general':
-				update_option( 'lship_autocomplete_order', ! empty( $data['lship_autocomplete_order'] ) ? 'yes' : 'no' );
-				update_option( 'lship_send_email_after_redeem', ! empty( $data['lship_send_email_after_redeem'] ) ? 'yes' : 'no' );
+				update_option( 'lship_autocomplete_order', ( $data['lship_autocomplete_order'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
+				update_option( 'lship_send_email_after_redeem', ( $data['lship_send_email_after_redeem'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_enable_variation_support', ( $data['lship_enable_variation_support'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_enable_manage_downloads', ( $data['lship_enable_manage_downloads'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
 				update_option( 'lship_enable_manage_activation_guides', ( $data['lship_enable_manage_activation_guides'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
