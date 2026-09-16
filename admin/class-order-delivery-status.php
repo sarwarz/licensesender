@@ -190,51 +190,10 @@ JS
 			$expected = ls_count_expected_license_keys( $order );
 			$fetched  = ls_count_fetched_license_keys( $order_id );
 			if ( $expected > 0 && $fetched < $expected ) {
+				// Pull keys already assigned on SaaS into the WP cache only.
+				// Never call fetch_license here — that assigns new stock and
+				// bypasses the customer Get Key / admin Get License flow.
 				LS_License_Cache::sync_order_licenses( $order_id, true );
-
-				// Still short after sync: ask SaaS fetch path (idempotent) per product.
-				$fetched = ls_count_fetched_license_keys( $order_id );
-				if ( $fetched < $expected && class_exists( 'Licensesender_Api' ) ) {
-					foreach ( $order->get_items() as $item ) {
-						$product_id = (int) ( $item->get_variation_id() ?: $item->get_product_id() );
-						if ( ! ls_is_licensesender_enabled( $product_id ) ) {
-							continue;
-						}
-						$sku = ls_get_mapped_sku( $product_id );
-						if ( $sku === '' ) {
-							continue;
-						}
-						$need = ls_count_expected_keys_for_product_in_order( $order, $product_id );
-						$have = count( ls_get_cached_licenses_for_product( $order_id, $product_id ) );
-						if ( $have >= $need ) {
-							continue;
-						}
-						$api_qty = ls_api_quantity_for_product_fetch( $order, $product_id, $sku );
-						$api     = Licensesender_Api::fetch_license(
-							array(
-								'sku'      => $sku,
-								'quantity' => $api_qty,
-								'order_id' => $order_id,
-								'email'    => $order->get_billing_email(),
-								'source'   => sanitize_title( get_bloginfo( 'name' ) ) ?: 'woocommerce',
-							)
-						);
-						if ( ! empty( $api['success'] ) && ! empty( $api['licenses'] ) && is_array( $api['licenses'] ) ) {
-							$links = ls_get_license_product_links( $product_id );
-							$info  = is_array( $api['product'] ?? null ) ? $api['product'] : array();
-							LS_License_Cache::save_fetched_licenses(
-								$order_id,
-								$product_id,
-								$sku,
-								$order->get_billing_email(),
-								$api['licenses'],
-								$links['download_link'] ?: ( $info['download_link'] ?? '' ),
-								$links['activation_guide'] ?: ( $info['activation_guide'] ?? '' ),
-								'list-sync'
-							);
-						}
-					}
-				}
 			}
 		}
 
