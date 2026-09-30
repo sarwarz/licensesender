@@ -376,6 +376,20 @@ class LS_Chat {
 			wp_send_json_error( array( 'message' => __( 'Enter a message or attach a file.', 'licensesender' ) ), 422 );
 		}
 
+		$max_len = (int) apply_filters( 'ls_chat_max_message_length', 5000 );
+		if ( $max_len > 0 && mb_strlen( $message ) > $max_len ) {
+			wp_send_json_error(
+				array(
+					'message' => sprintf(
+						/* translators: %d: maximum characters allowed */
+						__( 'Messages are limited to %d characters. Please shorten your message.', 'licensesender' ),
+						$max_len
+					),
+				),
+				422
+			);
+		}
+
 		if ( count( $files ) > 5 ) {
 			wp_send_json_error( array( 'message' => __( 'You can attach up to 5 files.', 'licensesender' ) ), 422 );
 		}

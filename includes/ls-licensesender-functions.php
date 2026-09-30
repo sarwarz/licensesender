@@ -1129,6 +1129,26 @@ function ls_customizeEmailTemplate( $template, $data = array() ) {
 	return strtr( $template, $data );
 }
 
+/**
+ * Neutralize spreadsheet formula injection in CSV cells.
+ *
+ * Cells starting with =, +, -, @ (or control chars) execute as formulas when
+ * the export is opened in Excel/Sheets. Key values come from the SaaS and
+ * product names from the catalog, so treat both as untrusted.
+ */
+function ls_csv_safe_field( $value ): string {
+	$value = (string) $value;
+	if ( $value === '' ) {
+		return $value;
+	}
+
+	if ( preg_match( '/^[=+\-@\t\r]/', $value ) ) {
+		return "'" . $value;
+	}
+
+	return $value;
+}
+
 function ls_get_activation_guide_pdf_link( $product_id ) {
 	global $wpdb;
 

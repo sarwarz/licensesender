@@ -245,9 +245,9 @@ class Ls_Licensesender_Public_Action {
 			fputcsv(
 				$out,
 				array(
-					$license->order_id,
-					$product_name,
-					$license->key_value,
+					(int) $license->order_id,
+					ls_csv_safe_field( $product_name ),
+					ls_csv_safe_field( $license->key_value ),
 				)
 			);
 		}

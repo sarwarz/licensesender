@@ -353,6 +353,16 @@ class LS_Wholesale {
 			return new WP_Error( 'pending', __( 'You already have a pending application.', 'licensesender' ) );
 		}
 
+		// Cooldown between submissions — each application emails the admin,
+		// so resubmitting in a loop would otherwise spam notifications.
+		$cooldown = (int) apply_filters( 'ls_wholesale_application_cooldown', 10 * MINUTE_IN_SECONDS );
+		if ( $cooldown > 0 && get_transient( 'ls_wholesale_apply_cooldown_' . $user_id ) ) {
+			return new WP_Error(
+				'too_soon',
+				__( 'You recently submitted an application. Please wait a few minutes before trying again.', 'licensesender' )
+			);
+		}
+
 		$company         = sanitize_text_field( $data['company_name'] ?? '' );
 		$email           = sanitize_email( $data['business_email'] ?? '' );
 		$phone           = sanitize_text_field( $data['phone'] ?? '' );
@@ -390,6 +400,11 @@ class LS_Wholesale {
 		}
 
 		$application_id = (int) $wpdb->insert_id;
+
+		if ( $cooldown > 0 ) {
+			set_transient( 'ls_wholesale_apply_cooldown_' . $user_id, time(), $cooldown );
+		}
+
 		self::notify_new_application( $application_id );
 
 		return $application_id;

@@ -23,6 +23,38 @@ class Ls_Licensesender_Admin_Action{
 		check_ajax_referer( $action, 'nonce' );
 	}
 
+	/**
+	 * Drop <img> tags whose src Dompdf must not fetch server-side.
+	 *
+	 * Keeps data:image URIs and URLs passing the activation-guide host
+	 * allowlist (same host, uploads CDN, licensesender.com; private IPs
+	 * rejected). Everything else is removed before rendering.
+	 */
+	private static function sanitize_pdf_html_images( $html ) {
+		return (string) preg_replace_callback(
+			'/<img\b[^>]*>/i',
+			static function ( $match ) {
+				$tag = $match[0];
+
+				if ( ! preg_match( '/\bsrc\s*=\s*("([^"]*)"|\'([^\']*)\')/i', $tag, $src ) ) {
+					return '';
+				}
+
+				$url = trim( $src[2] !== '' ? $src[2] : ( $src[3] ?? '' ) );
+				if ( $url === '' ) {
+					return '';
+				}
+
+				if ( stripos( $url, 'data:image/' ) === 0 ) {
+					return $tag;
+				}
+
+				return ls_is_safe_activation_guide_url( $url ) ? $tag : '';
+			},
+			$html
+		);
+	}
+
 	public static function init(){
 
 		 add_action( 'admin_post_ls_save_settings', array( __CLASS__ , 'ls_save_settings') );
@@ -617,6 +649,10 @@ class Ls_Licensesender_Admin_Action{
 	            $site_url = site_url('/');
 	            $html = str_replace('src="/', 'src="' . $site_url, $html);
 
+	            // isRemoteEnabled lets Dompdf fetch image URLs server-side, so
+	            // strip any image whose host is not allowlisted (SSRF guard).
+	            $html = self::sanitize_pdf_html_images($html);
+
 	            $dompdf->loadHtml($html);
 	            $dompdf->setPaper('A4', 'portrait');
 	            $dompdf->render();
@@ -633,7 +669,10 @@ class Ls_Licensesender_Admin_Action{
 	    elseif ($type === 'pdf') {
 	        if (isset($_FILES['pdf_file']) && !empty($_FILES['pdf_file']['name'])) {
 	            require_once ABSPATH . 'wp-admin/includes/file.php';
-	            $upload = wp_handle_upload($_FILES['pdf_file'], ['test_form' => false]);
+	            $upload = wp_handle_upload($_FILES['pdf_file'], [
+	                'test_form' => false,
+	                'mimes'     => ['pdf' => 'application/pdf'],
+	            ]);
 	            if (isset($upload['error'])) {
 	                wp_send_json_error(__('File upload failed: ', 'licensesender') . $upload['error']);
 	            }

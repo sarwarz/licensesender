@@ -73,7 +73,9 @@ class LS_Webhook_Receiver {
 	}
 
 	public static function can_manage_options() {
-		return current_user_can( 'manage_woocommerce' ) || current_user_can( 'manage_options' );
+		// Regenerating returns the new shared secret, so this must stay
+		// admin-only (matching the settings screens that display it).
+		return current_user_can( 'manage_options' );
 	}
 
 	/**

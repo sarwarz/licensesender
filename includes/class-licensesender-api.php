@@ -18,6 +18,19 @@ class Licensesender_Api {
     }
 
     /**
+     * Sanitized excerpt of a non-JSON upstream body for error messages.
+     *
+     * These messages can flow into customer-facing AJAX responses, so never
+     * surface raw upstream markup.
+     */
+    protected static function upstream_error_excerpt( $raw_body ) {
+        $excerpt = trim( wp_strip_all_tags( (string) $raw_body ) );
+        $excerpt = function_exists( 'mb_substr' ) ? mb_substr( $excerpt, 0, 300 ) : substr( $excerpt, 0, 300 );
+
+        return $excerpt !== '' ? $excerpt : __( 'Unexpected non-JSON response from API.', 'licensesender' );
+    }
+
+    /**
      * Fetch licenses from external API
      */
     public static function fetch_license($params = []) {
@@ -80,11 +93,11 @@ class Licensesender_Api {
         $raw_body  = wp_remote_retrieve_body($response);
         $data      = json_decode($raw_body, true);
 
-        // If not JSON, surface raw body
+        // If not JSON, surface a sanitized excerpt — never raw upstream markup.
         if (!is_array($data)) {
             return [
                 'success'   => false,
-                'message'   => $raw_body ?: __('Unexpected non-JSON response from API.', 'licensesender'),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             ];
         }
@@ -187,7 +200,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return array(
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             );
         }
@@ -472,7 +485,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return array(
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             );
         }
@@ -750,7 +763,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return [
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             ];
         }
@@ -1091,7 +1104,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return array(
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             );
         }
@@ -1293,7 +1306,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return array(
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             );
         }
@@ -1933,7 +1946,7 @@ class Licensesender_Api {
         if ( ! is_array( $data ) ) {
             return array(
                 'success'   => false,
-                'message'   => $raw_body ?: __( 'Unexpected non-JSON response from API.', 'licensesender' ),
+                'message'   => static::upstream_error_excerpt( $raw_body ),
                 'http_code' => $http_code,
             );
         }
