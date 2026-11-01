@@ -227,21 +227,8 @@ class Ls_Licensesender_Admin_Action{
 				break;
 
 			case 'advance':
-			   
-			   /** SSO */
-				$lship_sso_enabled = ($_POST['lship_sso_enabled'] ?? 'no') === 'yes' ? 'yes' : 'no';
-
-				update_option('lship_sso_enabled', $lship_sso_enabled);
-
-				if (!empty($_POST['lship_sso_token'])) {
-					update_option('lship_sso_token', sanitize_text_field($_POST['lship_sso_token']));
-				}
-
-				if (!empty($_POST['lship_sso_user_email'])) {
-					update_option('lship_sso_user_email', sanitize_email($_POST['lship_sso_user_email']));
-				}
-
-			    break;
+				// Webhook credentials are read-only; nothing to save on this tab.
+				break;
 
 
 	        default:

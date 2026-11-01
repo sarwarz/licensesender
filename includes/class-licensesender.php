@@ -134,8 +134,6 @@ class Licensesender {
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-webhook-receiver.php';
 
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-licensesender-email-handler.php';
-		
-		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-licensesender-sso.php';
 
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-wholesale.php';
 		require_once plugin_dir_path( dirname( __FILE__ ) ) . 'includes/class-ls-wholesale-catalog.php';

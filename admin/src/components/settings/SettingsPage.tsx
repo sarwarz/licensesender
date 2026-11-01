@@ -111,7 +111,7 @@ const TABS: {
   {
     id: 'advance',
     label: 'Advanced',
-    description: 'SSO, webhooks, order sync, and advanced configuration.',
+    description: 'Webhooks, order sync, and advanced configuration.',
     hint: 'Integrations',
     icon: Shield,
     group: 'system',
@@ -470,7 +470,6 @@ export function SettingsPage() {
                             settings={settings}
                             regeneratingSecret={regeneratingSecret}
                             orderBackfill={orderBackfill}
-                            onChange={updateField}
                             onRegenerateSecret={regenerateWebhookSecret}
                             onOrderBackfillChange={setOrderBackfill}
                           />

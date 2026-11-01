@@ -937,9 +937,6 @@ class LS_Admin_Service {
 				}
 
 				return array(
-					'lship_sso_enabled'     => get_option( 'lship_sso_enabled', 'no' ),
-					'lship_sso_token'       => get_option( 'lship_sso_token', '' ),
-					'lship_sso_user_email'  => get_option( 'lship_sso_user_email', '' ),
 					'lship_webhook_url'     => $webhook_url,
 					'lship_webhook_secret'  => $webhook_secret,
 					'order_backfill'        => class_exists( 'LS_Order_Push' ) ? LS_Order_Push::get_backfill_status() : array(),
@@ -1085,13 +1082,7 @@ class LS_Admin_Service {
 				}
 				break;
 			case 'advance':
-				update_option( 'lship_sso_enabled', ( $data['lship_sso_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );
-				if ( ! empty( $data['lship_sso_token'] ) ) {
-					update_option( 'lship_sso_token', sanitize_text_field( $data['lship_sso_token'] ) );
-				}
-				if ( ! empty( $data['lship_sso_user_email'] ) ) {
-					update_option( 'lship_sso_user_email', sanitize_email( $data['lship_sso_user_email'] ) );
-				}
+				// Webhook credentials are read-only; nothing to save on this tab.
 				break;
 			case 'wholesale':
 				update_option( 'lship_wholesale_enabled', ( $data['lship_wholesale_enabled'] ?? 'no' ) === 'yes' ? 'yes' : 'no' );

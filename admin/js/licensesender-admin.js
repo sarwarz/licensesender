@@ -96,32 +96,6 @@
   });
 	
   /* ================================
-   * SSO SETTINGS TOGGLE
-   * ================================ */
-  function initSsoSettings() {
-    const $toggle = $('#lship_sso_enabled');
-    const $token  = $('#lship_sso_token');
-    const $email  = $('#lship_sso_user_email');
-
-    if (!$toggle.length) return;
-
-    function syncSsoState() {
-      const enabled = $toggle.is(':checked');
-
-      $token.prop('readonly', !enabled);
-      $email.prop('readonly', !enabled);
-
-      $token.toggleClass('readonly', !enabled);
-      $email.toggleClass('readonly', !enabled);
-    }
-
-    syncSsoState();
-    $toggle.on('change', syncSsoState);
-  }
-
-	$(initSsoSettings);
-
-  /* ================================
    * PRODUCT MAPPING TOGGLE
    * ================================ */
   function syncProductMappingVisibility() {

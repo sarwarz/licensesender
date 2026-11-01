@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Check, Copy, Eye, EyeOff, History, KeyRound, RefreshCw, Webhook } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, History, RefreshCw, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
 import { apiRequest } from '@/api/client';
 import { SettingsSection } from '@/components/settings/SettingsSection';
@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 export type OrderBackfillStatus = {
@@ -28,7 +27,6 @@ type AdvancedSettingsFieldsProps = {
   settings: Record<string, string>;
   regeneratingSecret?: boolean;
   orderBackfill?: OrderBackfillStatus | null;
-  onChange: (key: string, value: string) => void;
   onRegenerateSecret: () => void;
   onOrderBackfillChange?: (status: OrderBackfillStatus) => void;
 };
@@ -108,17 +106,12 @@ export function AdvancedSettingsFields({
   settings,
   regeneratingSecret = false,
   orderBackfill = null,
-  onChange,
   onRegenerateSecret,
   onOrderBackfillChange,
 }: AdvancedSettingsFieldsProps) {
-  const ssoEnabled = settings.lship_sso_enabled === 'yes';
   const webhookUrl = settings.lship_webhook_url || '';
   const webhookSecret = settings.lship_webhook_secret || '';
   const webhookReady = Boolean(webhookUrl && webhookSecret);
-  const ssoToken = settings.lship_sso_token || '';
-  const ssoEmail = settings.lship_sso_user_email || '';
-  const ssoReady = ssoEnabled && Boolean(ssoToken.trim() && ssoEmail.trim());
   const [backfill, setBackfill] = useState<OrderBackfillStatus>(orderBackfill || {});
   const [startingBackfill, setStartingBackfill] = useState(false);
 
@@ -326,95 +319,6 @@ export function AdvancedSettingsFields({
               </div>
             </div>
           </div>
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Single sign-on"
-        description="Open your LicenseSender dashboard from the WordPress admin bar using a shared token from LicenseSender → Settings → Security."
-        singleColumn
-      >
-        <div className="space-y-4 rounded-xl border bg-card p-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
-            <div className="space-y-1 pr-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <Label htmlFor="lship_sso_enabled">Enable SSO Login</Label>
-                {ssoEnabled ? (
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      ssoReady
-                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100'
-                        : 'bg-amber-100 text-amber-800 hover:bg-amber-100',
-                    )}
-                  >
-                    {ssoReady ? 'Ready' : 'Needs token & email'}
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-100">
-                    Off
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                When enabled, admins see a LicenseSender shortcut in the admin bar that opens a signed login URL.
-              </p>
-            </div>
-            <Switch
-              id="lship_sso_enabled"
-              checked={ssoEnabled}
-              onCheckedChange={(v) => onChange('lship_sso_enabled', v ? 'yes' : 'no')}
-            />
-          </div>
-
-          {ssoEnabled ? (
-            <div className="space-y-4 border-t pt-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="lship_sso_token">SSO Access Token</Label>
-                  <Input
-                    id="lship_sso_token"
-                    type="password"
-                    value={ssoToken}
-                    onChange={(e) => onChange('lship_sso_token', e.target.value)}
-                    placeholder="Paste token from LicenseSender Settings → Security"
-                    autoComplete="new-password"
-                    className="font-mono text-xs"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Must match the SSO token generated in LicenseSender.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="lship_sso_user_email">SSO User Email</Label>
-                  <Input
-                    id="lship_sso_user_email"
-                    type="email"
-                    value={ssoEmail}
-                    onChange={(e) => onChange('lship_sso_user_email', e.target.value)}
-                    placeholder="your@email.com"
-                    autoComplete="off"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    LicenseSender account email that will be signed in.
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-lg border bg-muted/40 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-muted-foreground" />
-                  <p className="text-sm font-medium text-foreground">Setup checklist</p>
-                </div>
-                <ol className="list-decimal space-y-1.5 ps-4 text-xs text-muted-foreground">
-                  <li>In LicenseSender go to Settings → Security and enable SSO.</li>
-                  <li>Generate an SSO access token and copy it here.</li>
-                  <li>Enter the same LicenseSender account email you use to sign in.</li>
-                  <li>Save changes, then use the LicenseSender item in the WP admin bar.</li>
-                </ol>
-              </div>
-            </div>
-          ) : null}
         </div>
       </SettingsSection>
     </div>

@@ -412,7 +412,7 @@ class LS_Admin_REST {
 	public static function get_settings( WP_REST_Request $request ) {
 		$tab = $request->get_param( 'tab' ) ?: 'general';
 
-		// The api/advance tabs return credentials (SaaS API key, SSO token,
+		// The api/advance tabs return credentials (SaaS API key,
 		// webhook secret). Writing them already requires manage_options, so
 		// reading them must too — shop managers must not see these secrets.
 		if ( in_array( $tab, array( 'api', 'advance' ), true ) && ! current_user_can( 'manage_options' ) ) {
