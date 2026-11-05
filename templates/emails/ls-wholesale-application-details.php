@@ -42,9 +42,9 @@ if ( $plain_text ) :
 		}
 		echo esc_html( $label ) . ': ' . esc_html( $value ) . "\n";
 	}
-	if ( ! empty( $application['created_at'] ) ) {
+	if ( ! empty( $application['created_at'] ) ) :
 		echo esc_html__( 'Submitted', 'licensesender' ) . ': ' . esc_html( $application['created_at'] ) . "\n";
-	}
+	endif;
 else :
 	?>
 	<table class="td" cellspacing="0" cellpadding="6" style="width: 100%; font-family: 'Helvetica Neue', Helvetica, Roboto, Arial, sans-serif;" border="1">

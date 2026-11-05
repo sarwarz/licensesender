@@ -4,7 +4,7 @@ import animate from 'tailwindcss-animate';
 const config: Config = {
   important: '#ls-app-root',
   darkMode: ['class'],
-  content: ['./admin/src/**/*.{ts,tsx}'],
+  content: ['./resources/admin/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {

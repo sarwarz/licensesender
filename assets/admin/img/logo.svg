@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="0" y="0" width="512" height="512" rx="120" fill="url(#bg)"/>
+  <rect x="0" y="0" width="512" height="512" rx="120" fill="url(#shine)"/>
+
+  <!-- Key, heading up-right: a license on its way -->
+  <g transform="translate(20 -20) rotate(-45 256 256)" fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="168" cy="256" r="58" stroke-width="40"/>
+    <path d="M226 256 H404" stroke-width="40"/>
+    <path d="M352 256 V318" stroke-width="36"/>
+    <path d="M398 256 V300" stroke-width="36"/>
+  </g>
+
+  <!-- Motion trails behind the key -->
+  <g stroke="#FFFFFF" stroke-linecap="round" stroke-width="22" stroke-opacity="0.5">
+    <path d="M128 432 L166 394"/>
+    <path d="M96 368 L122 342"/>
+  </g>
+</svg>

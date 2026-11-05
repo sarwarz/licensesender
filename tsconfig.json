@@ -17,8 +17,8 @@
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["admin/src/*"]
+      "@/*": ["resources/admin/*"]
     }
   },
-  "include": ["admin/src"]
+  "include": ["resources/admin", "resources/public"]
 }

@@ -1,0 +1,21 @@
+{
+    "name": "licensesender/licensesender",
+    "description": "WooCommerce plugin that delivers license keys from the LicenseSender app.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=7.4"
+    },
+    "autoload": {
+        "psr-4": {
+            "LicenseSender\\": "src/"
+        },
+        "files": [
+            "src/functions.php"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

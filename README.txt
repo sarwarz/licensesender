@@ -1,10 +1,10 @@
 === LicenseSender ===
 Contributors: licensesender
 Tags: woocommerce, license, digital products, license keys
-Requires at least: 5.8
+Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.3.8
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ Yes. WooCommerce must be installed and active.
 On the order details page, the thank-you page, and the **My Keys** section in My Account.
 
 == Changelog ==
+
+= 1.3.8 =
+* Slim chat settings to enable toggle and widget color only
 
 = 1.1.0 =
 * React admin UI for License Keys, Settings, Download Links, and Activation Guides
