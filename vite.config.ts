@@ -3,14 +3,15 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 
 const root = __dirname;
-const srcDir = path.resolve(root, 'admin/src');
+const srcDir = path.resolve(root, 'resources/admin');
 const entriesDir = path.resolve(srcDir, 'entries');
-const outDir = path.resolve(root, 'admin/build');
+const outDir = path.resolve(root, 'build/admin');
 
 const entry = process.env.LS_ENTRY || 'licenses';
 
 export default defineConfig({
   plugins: [react()],
+  publicDir: false,
   resolve: {
     alias: {
       '@': srcDir,
